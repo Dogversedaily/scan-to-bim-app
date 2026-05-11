@@ -797,6 +797,18 @@
     .btn-close-modal { background: rgba(255,255,255,0.2); border: none; width: 40px; height: 40px; border-radius: 20px; color: #fff; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .photo-modal-img { flex: 1; width: 100%; object-fit: contain; padding-bottom: 20px; }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js').then(function(registration) {
+          console.log('ServiceWorker enregistré !');
+        });
+      });
+    }
+  </script>
 </head>
 <body>
 
