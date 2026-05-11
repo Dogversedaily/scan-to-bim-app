@@ -1,0 +1,2734 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Scan-to-BIM" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>Scan-to-BIM Field App</title>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <style>
+    /* =====================================================
+       VARIABLES & RESET (MODE CLAIR / DAYLIGHT)
+    ===================================================== */
+    :root {
+      --bg-deep:       #f1f5f9;
+      --bg-card:       #ffffff;
+      --bg-card2:      #f8fafc;
+      --bg-input:      #ffffff;
+      --border:        #cbd5e1;
+      --blue-acc:      #2563eb;
+      --blue-glow:     rgba(37,99,235,0.12);
+      --green:         #16a34a;
+      --green-glow:    rgba(22,163,74,0.12);
+      --amber:         #d97706;
+      --amber-glow:    rgba(217,119,6,0.12);
+      --red:           #dc2626;
+      --red-glow:      rgba(220,38,38,0.12);
+      --text-primary:  #0f172a;
+      --text-secondary:#475569;
+      --text-muted:    #64748b;
+      --radius-sm:     8px;
+      --radius-md:     14px;
+      --radius-lg:     20px;
+      --font-head:     'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-body:     'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --header-h:      60px;
+      --tab-h:         64px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.45;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .view {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-deep);
+      transition: transform 0.32s cubic-bezier(0.4,0,0.2,1), opacity 0.32s ease;
+      will-change: transform, opacity;
+      overflow: hidden;
+    }
+    .view.hidden { transform: translateX(100%); opacity: 0; pointer-events: none; }
+    .view.active { transform: translateX(0); opacity: 1; pointer-events: all; z-index: 2; }
+
+    #view-login {
+      align-items: center;
+      justify-content: center;
+      padding: 32px 28px 60px;
+    }
+    #view-login.active { transform: translateX(0); }
+
+    .login-logo      { font-size: 52px; margin-bottom: 12px; }
+    .login-app-name  { font-family: var(--font-head); font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+    .login-tagline   { font-size: 13px; color: var(--text-secondary); margin-bottom: 40px; text-align: center; }
+    .login-form      { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+    .login-field     { display: flex; flex-direction: column; gap: 6px; }
+    .login-label     { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.5px; text-transform: uppercase; }
+    .login-input     { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; color: var(--text-primary); font-size: 15px; font-family: var(--font-body); outline: none; width: 100%; transition: border-color 0.2s; }
+    .login-input:focus { border-color: var(--blue-acc); }
+    .login-input::placeholder { color: var(--text-muted); }
+    .login-error     { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; color: var(--red); display: none; }
+    .login-error.show { display: block; }
+    .btn-login       { margin-top: 8px; padding: 16px; background: linear-gradient(135deg, #2d7cf6, #1a5fc2); border: none; border-radius: var(--radius-md); color: #fff; font-family: var(--font-head); font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(45,124,246,0.3); transition: opacity 0.15s, transform 0.1s; }
+    .btn-login:active { opacity: 0.85; transform: scale(0.98); }
+
+    .header {
+      flex-shrink: 0;
+      height: var(--header-h);
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 10px;
+      z-index: 100;
+    }
+    .header-back {
+      width: 34px; height: 34px; border: none; background: none;
+      color: var(--blue-acc); cursor: pointer; flex-shrink: 0;
+      font-size: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .header-back:active { background: var(--blue-glow); }
+    .header-title-wrap { flex: 1; min-width: 0; }
+    .header-project { font-family: var(--font-head); font-size: 20px; font-weight: 700; letter-spacing: -0.4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 8px; }
+    .header-local-name { font-family: var(--font-head); font-size: 20px; font-weight: 700; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-project-small { font-size: 11px; color: var(--text-secondary); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+
+    .btn-sync {
+      background: var(--bg-card2); border: 1px solid var(--border); border-radius: 20px;
+      padding: 5px 11px; display: flex; align-items: center; gap: 5px;
+      color: var(--text-secondary); font-size: 12px; cursor: pointer;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-sync:active { transform: scale(0.95); }
+    .btn-sync.has-queue { background: var(--blue-glow); border-color: var(--blue-acc); color: var(--blue-acc); }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); display: none; animation: pulse 1.4s infinite; }
+    .btn-sync.has-queue .sync-dot { display: block; }
+
+    .btn-signout { background: transparent; border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px; color: var(--text-muted); font-size: 18px; cursor: pointer; transition: all 0.2s; line-height: 1; }
+    .btn-signout:active { color: var(--red); transform: scale(0.95); }
+
+    .role-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .role-badge.tech  { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+    .role-badge.admin { background: rgba(45,124,246,0.15); color: var(--blue-acc); border: 1px solid rgba(45,124,246,0.3); }
+
+    @keyframes pulse { 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:0.5; transform:scale(1.35); } }
+
+    .scroll-body { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+    .scroll-body::-webkit-scrollbar { display: none; }
+
+    .search-wrap {
+      padding: 12px 16px;
+      position: sticky; top: 0;
+      background: rgba(241,245,249,0.96);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      z-index: 10;
+      border-bottom: 1px solid var(--border);
+    }
+    .search-row { display: flex; align-items: center; gap: 10px; }
+    .search-bar {
+      flex: 1; display: flex; align-items: center; gap: 10px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 14px;
+    }
+    .search-bar input { flex: 1; border: none; background: transparent; color: var(--text-primary); font-size: 15px; font-family: var(--font-body); outline: none; }
+    .search-clear {
+      display: none;
+      width: 20px; height: 20px;
+      background: var(--border); color: var(--text-secondary);
+      border-radius: 50%; align-items: center; justify-content: center;
+      font-size: 11px; cursor: pointer; flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .search-clear.show { display: flex; }
+    .search-clear:active { background: var(--text-muted); color: #fff; }
+    .search-bar input::placeholder { color: var(--text-muted); }
+    .search-bar svg { flex-shrink: 0; color: var(--text-muted); }
+
+    #btn-filter {
+      flex-shrink: 0; width: 42px; height: 42px;
+      background: var(--bg-card2); border: 1px solid var(--border);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s; position: relative;
+    }
+    #btn-filter:active { background: var(--blue-glow); border-color: var(--blue-acc); }
+    #btn-filter.has-filters { background: var(--blue-glow); border-color: var(--blue-acc); }
+    #btn-filter svg { color: var(--text-secondary); transition: color 0.15s; }
+    #btn-filter.has-filters svg { color: var(--blue-acc); }
+
+    .filter-count-badge {
+      position: absolute; top: -4px; right: -4px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--blue-acc); color: #fff;
+      font-size: 9px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      display: none;
+    }
+    #btn-filter.has-filters .filter-count-badge { display: flex; }
+
+    #filter-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 200;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.28s ease;
+    }
+    #filter-overlay.open { opacity: 1; pointer-events: all; }
+
+    #filter-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--bg-card);
+      border-radius: 22px 22px 0 0;
+      border-top: 1px solid var(--border);
+      z-index: 201;
+      max-height: 85vh;
+      display: flex; flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+    }
+    #filter-sheet.open { transform: translateY(0); }
+
+    .sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; flex-shrink: 0; }
+    .sheet-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px 10px; flex-shrink: 0;
+    }
+    .sheet-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
+    .sheet-close {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--bg-card2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px; color: var(--text-secondary);
+      transition: background 0.15s;
+    }
+    .sheet-close:active { background: var(--border); }
+    .sheet-scroll { flex: 1; overflow-y: auto; padding: 0 20px; }
+    .sheet-scroll::-webkit-scrollbar { display: none; }
+
+    .filter-group { margin-bottom: 8px; }
+    .filter-group-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0 10px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .filter-group-label { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+    .filter-group-chevron { font-size: 13px; color: var(--text-muted); transition: transform 0.2s; }
+    .filter-group-chevron.open { transform: rotate(180deg); }
+    .filter-group-items { padding: 4px 0; }
+    .filter-group-items.collapsed { display: none; }
+
+    .filter-checkbox-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 0;
+      cursor: pointer;
+    }
+    .filter-checkbox-row:active { opacity: 0.7; }
+    .filter-checkbox-label { font-size: 14px; color: var(--text-primary); }
+
+    .custom-cb {
+      width: 20px; height: 20px;
+      border: 2px solid var(--text-muted);
+      border-radius: 5px; flex-shrink: 0;
+      transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+    }
+    .custom-cb.checked { background: var(--blue-acc); border-color: var(--blue-acc); }
+    .custom-cb.checked::after { content: '✓'; color: #fff; font-size: 12px; font-weight: 700; }
+
+    .sheet-footer {
+      display: flex; gap: 10px;
+      padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .btn-sheet-clear {
+      flex: 1; padding: 14px; border-radius: var(--radius-md);
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-secondary); font-family: var(--font-head);
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-sheet-clear:active { background: var(--bg-card2); }
+    .btn-sheet-done {
+      flex: 1.4; padding: 14px; border-radius: var(--radius-md);
+      background: var(--blue-acc); border: none;
+      color: #fff; font-family: var(--font-head);
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(45,124,246,0.3);
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-sheet-done:active { opacity: 0.85; transform: scale(0.97); }
+    .fantome-drag { opacity: 0.4; background: #e2e8f0; border: 2px dashed var(--blue-acc) !important; }
+    .summary-card { cursor: grab; touch-action: none; }
+    .summary-card:active { cursor: grabbing; }
+    /* =====================================================
+       NOUVEAU DESIGN : CARTES PROJETS (DASHBOARD)
+    ===================================================== */
+    .summary-card {
+      margin: 16px; background: #ffffff; border-radius: 20px; padding: 20px;
+      cursor: pointer; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(203, 213, 225, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease; position: relative;
+    }
+    .summary-card:active { transform: scale(0.97); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); }
+    .summary-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .summary-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.4px; line-height: 1.2; }
+    .summary-arrow { color: var(--text-muted); font-size: 24px; font-weight: 300; }
+    
+    .summary-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .stat-box { background: var(--bg-deep); border-radius: 12px; padding: 12px 4px; text-align: center; }
+    .stat-box.success { background: var(--green-glow); }
+    .stat-box.warning { background: var(--amber-glow); }
+    
+    .stat-value { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--text-primary); line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 10px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .progress-wrapper { background: var(--bg-card); }
+    .progress-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .progress-label-text { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+    .progress-pct { font-size: 14px; font-weight: 800; color: var(--blue-acc); }
+    .progress-track-thick { height: 8px; background: var(--bg-deep); border-radius: 99px; overflow: hidden; }
+    .progress-fill-thick { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+
+    .section-header { padding: 16px 14px 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--text-muted); }
+    .piece-list { padding: 0 14px 10px; }
+    .piece-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; padding: 13px 13px;
+      margin-bottom: 8px; gap: 12px; cursor: pointer;
+      transition: background 0.15s, transform 0.1s; position: relative; overflow: hidden;
+    }
+    .piece-card:active { transform: scale(0.983); background: var(--bg-card2); }
+    .piece-card.done { border-color: rgba(34,197,94,0.25); }
+    .piece-card.done .piece-icon { background: var(--green-glow); border-color: rgba(34,197,94,0.28); }
+    .piece-icon { flex-shrink: 0; width: 46px; height: 46px; border-radius: 12px; background: var(--bg-card2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 21px; transition: background 0.2s; }
+    .piece-info { flex: 1; min-width: 0; }
+    .piece-name { font-family: var(--font-head); font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .piece-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .piece-right { flex-shrink: 0; display: flex; align-items: center; gap: 7px; }
+    .badge { font-size: 13px; font-weight: 700; font-family: var(--font-head); white-space: nowrap; color: var(--text-primary); }
+    .badge.done-badge  { color: var(--green); }
+    .badge.warn-badge  { color: var(--amber); }
+    .chevron { color: var(--text-muted); font-size: 16px; }
+    .piece-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:3px 0 0 3px; background:transparent; transition:background 0.2s; }
+    .piece-card[data-crit="NIV 1"]::before { background: var(--red); }
+    .piece-card[data-crit="NIV 2"]::before { background: var(--amber); }
+    .piece-card[data-crit="NIV 3"]::before { background: var(--green); }
+
+    .plan-container {
+      margin: 0 14px 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      position: relative;
+      height: 240px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+    .plan-image {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+    .plan-container.fullscreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      border-radius: 0;
+      z-index: 9999;
+      background: #ffffff;
+    }
+    .plan-image.hidden, .plan-overlay-text.hidden, .plan-missing.hidden { display: none; }
+    .plan-overlay-text {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.9); border: 1px solid var(--blue-acc);
+      color: var(--blue-acc); padding: 6px 12px; border-radius: 8px;
+      font-family: var(--font-head); font-size: 16px; font-weight: 800;
+      backdrop-filter: blur(4px); box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: none;
+     }
+    .plan-missing { color: var(--text-muted); font-size: 13px; text-align: center; padding: 30px; }
+    .plan-container button svg.hidden { display: none !important; }
+    .btn-fullscreen {
+      position: absolute; top: 10px; right: 10px; width: 36px; height: 36px;
+      background: rgba(255, 255, 255, 0.9); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text-primary); display: flex;
+      align-items: center; justify-content: center; cursor: pointer;
+      z-index: 10; backdrop-filter: blur(4px);
+    }
+    .btn-fullscreen:active { background: rgba(255,255,255,0.2); }
+    .btn-fullscreen.hidden { display: none; }
+
+    #view-detail .scroll-body { padding-bottom: calc(var(--tab-h) + 120px); }
+    .detail-hero { padding: 16px 16px 12px; display: flex; align-items: flex-start; gap: 14px; }
+    .detail-hero-icon { width: 56px; height: 56px; border-radius: 14px; background: var(--bg-card2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+    .detail-hero-project { font-family: var(--font-head); font-size: 16px; font-weight: 700; letter-spacing: -0.2px; }
+    .detail-hero-niveau  { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+
+    .banner { margin: 0 14px 10px; border-radius: var(--radius-md); padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; font-size: 13px; font-weight: 600; line-height: 1.45; }
+    .banner.hidden { display: none; }
+    .banner-icon { font-size: 17px; flex-shrink: 0; line-height: 1.2; }
+    .banner.green { background: var(--green-glow); border: 1px solid rgba(34,197,94,0.35); color: var(--green); }
+    .banner.amber { background: var(--amber-glow); border: 1px solid rgba(245,158,11,0.35); color: var(--amber); }
+    .banner.red   { background: var(--red-glow); border: 1px solid rgba(239,68,68,0.35); color: var(--red); }
+
+    .detail-section-title { font-family: var(--font-head); font-size: 18px; font-weight: 700; padding: 4px 16px 10px; }
+    .info-table { margin: 0 14px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+    .info-row { display: flex; align-items: center; padding: 13px 15px; border-bottom: 1px solid var(--border); gap: 12px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-row.hidden { display: none; }
+    .info-label { flex: 1; font-size: 14px; color: var(--text-secondary); }
+    .info-value { font-size: 14px; font-weight: 600; text-align: right; }
+
+    .date-input { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; color: var(--text-primary); font-size: 13px; font-family: var(--font-body); outline: none; transition: border-color 0.2s; color-scheme: light; }
+    .date-input:focus { border-color: var(--blue-acc); }
+
+    .criticite-badge { display: inline-flex; align-items: center; justify-content: center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .criticite-badge.niv1 { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+    .criticite-badge.niv2 { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+    .criticite-badge.niv3 { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+
+    .progress-section { margin: 0 14px 14px; }
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .progress-title { font-size: 14px; font-weight: 700; }
+    .progress-count { font-size: 14px; font-weight: 700; color: var(--blue-acc); }
+    .progress-track-big { height: 8px; background: var(--bg-card2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+    .progress-fill-big { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #2d7cf6, #5aabff); transition: width 0.5s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 0 8px rgba(45,124,246,0.4); }
+    .progress-fill-big.full { background: linear-gradient(90deg, #22c55e, #4ade80); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+
+    .bottom-actions { margin: 14px 14px 10px; display: flex; flex-direction: column; gap: 8px; }
+    .btn-validate {
+      width: 100%; padding: 16px; border-radius: var(--radius-md); border: none; cursor: pointer;
+      font-family: var(--font-head); font-size: 16px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.18s;
+    }
+    .btn-validate.primary { background: linear-gradient(135deg, #2d7cf6, #1a5fc2); color: #fff; box-shadow: 0 4px 20px rgba(45,124,246,0.35); }
+    .btn-validate.primary:active { transform: scale(0.97); box-shadow: none; }
+    .btn-validate.disabled { background: var(--bg-card2); color: var(--text-muted); cursor: default; box-shadow: none; }
+    .btn-validate.hidden { display: none; }
+
+    .btn-cancel {
+      width: 100%;
+      padding: 13px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--bg-card2);
+      color: var(--text-secondary);
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      margin-top: 5px;
+      transition: all 0.15s;
+    }
+    .btn-cancel:active { background: var(--border); transform: scale(0.97); }
+    .btn-cancel:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    .btn-cancel.hidden { display: none; }
+
+    .tab-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--tab-h);
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 20px;
+      z-index: 100;
+    }
+    .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 6px; border-radius: var(--radius-sm); transition: background 0.15s; }
+    .tab-item:active { background: var(--bg-card2); }
+    .tab-label { font-size: 10px; font-weight: 500; color: var(--text-muted); }
+    .tab-item.active .tab-label { color: var(--blue-acc); }
+
+    #loader-screen { position: fixed; inset: 0; background: var(--bg-deep); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; z-index: 999; }
+    #loader-screen.hidden { display: none; }
+    .spinner { width: 44px; height: 44px; border: 3px solid var(--border); border-top-color: var(--blue-acc); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-title { font-family: var(--font-head); font-size: 18px; font-weight: 700; }
+    .loader-sub { font-size: 13px; color: var(--text-secondary); text-align: center; max-width: 260px; }
+
+    #error-screen { position: fixed; inset: 0; background: var(--bg-deep); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 24px; z-index: 999; }
+    #error-screen.hidden { display: none; }
+    .error-icon { font-size: 50px; }
+    .error-title { font-family: var(--font-head); font-size: 20px; font-weight: 700; text-align: center; }
+    .error-msg { font-size: 14px; color: var(--text-secondary); text-align: center; max-width: 300px; line-height: 1.55; }
+    .btn-retry { margin-top: 8px; padding: 14px 32px; background: var(--blue-acc); color: #fff; border: none; border-radius: var(--radius-md); font-family: var(--font-head); font-size: 15px; font-weight: 700; cursor: pointer; }
+    .btn-retry:active { opacity: 0.8; }
+
+    #toast {
+      position: fixed; bottom: calc(var(--tab-h) + 14px);
+      left: 50%; transform: translateX(-50%) translateY(16px);
+      background: #1e293b;
+      border: none;
+      border-radius: 24px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      opacity: 0; transition: opacity 0.22s, transform 0.22s;
+      white-space: nowrap; z-index: 500; pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 50px 32px; gap: 12px; color: var(--text-muted); }
+    .empty-state-icon { font-size: 36px; }
+    .empty-state-text { font-size: 14px; text-align: center; }
+    .list-bottom-pad { height: 32px; }
+
+    #admin-dates-section { margin: 0 16px 16px; }
+    #admin-dates-section.hidden { display: none; }
+    .admin-date-label { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; margin-left: 2px; }
+    .date-input-full {
+      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 12px 14px;
+      color: var(--text-primary); font-size: 15px; font-family: var(--font-body);
+      outline: none; margin-bottom: 16px; color-scheme: light;
+    }
+    .date-input-full:focus { border-color: var(--blue-acc); }
+
+    /* =====================================================
+       ASSIGN DATES SHEET
+    ===================================================== */
+    .btn-assign-dates {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, #ffffff, var(--bg-card2));
+      color: var(--blue-acc);
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.08);
+    }
+    .btn-assign-dates:active {
+      transform: scale(0.98);
+      background: var(--blue-glow);
+    }
+
+    #assign-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 220;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+    }
+    #assign-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    #assign-sheet {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-card);
+      border-radius: 22px 22px 0 0;
+      border-top: 1px solid var(--border);
+      z-index: 221;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+    }
+    #assign-sheet.open {
+      transform: translateY(0);
+    }
+
+    .assign-mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin: 4px 0 14px;
+    }
+    .assign-mode-tab {
+      flex: 1;
+      border: 1px solid var(--border);
+      background: var(--bg-card2);
+      color: var(--text-secondary);
+      border-radius: 12px;
+      padding: 11px 10px;
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .assign-mode-tab.active {
+      background: var(--blue-glow);
+      color: var(--blue-acc);
+      border-color: var(--blue-acc);
+    }
+
+    .assign-panel.hidden {
+      display: none;
+    }
+
+    .assign-info-card {
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    .assign-preview {
+      margin-top: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--blue-acc);
+    }
+
+    .assign-check-list {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 4px 12px;
+    }
+
+    .assign-manual-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .assign-manual-list {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 4px 12px;
+    }
+    .assign-manual-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    .assign-manual-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .assign-manual-row:last-child {
+      border-bottom: none;
+    }
+    .assign-manual-row:active {
+      opacity: 0.72;
+    }
+
+    .assign-manual-info {
+      min-width: 0;
+      flex: 1;
+    }
+    .assign-manual-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .assign-manual-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* =====================================================
+       VUE TÂCHES / MOTEUR DE TOURNÉE
+    ===================================================== */
+    .tasks-dashboard {
+      margin: 14px 14px 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .tasks-kpi-label { font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    .tasks-kpi-value { font-family: var(--font-head); font-size: 32px; font-weight: 800; color: var(--text-primary); line-height: 1; }
+    .tasks-kpi-unit { font-size: 12px; color: var(--text-secondary); font-weight: 500; margin-top: 3px; }
+    .btn-next-task {
+      flex-shrink: 0;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #2d7cf6, #1a5fc2);
+      border: none; border-radius: var(--radius-md);
+      color: #fff; font-family: var(--font-head);
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; text-align: center;
+      line-height: 1.35;
+      box-shadow: 0 4px 14px rgba(45,124,246,0.3);
+      transition: all 0.18s;
+      max-width: 116px;
+    }
+    .btn-next-task:active { opacity: 0.85; transform: scale(0.97); }
+    .tasks-list-wrap { padding: 0 14px 14px; margin-top: 10px; }
+    .task-section-header {
+      padding: 14px 0 6px;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.9px; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .task-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center;
+      padding: 12px 12px 12px 15px;
+      margin-bottom: 8px; gap: 10px;
+      position: relative; overflow: hidden;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, opacity 0.5s;
+    }
+    .task-card:active { background: var(--bg-card2); transform: scale(0.983); }
+    .task-card::before {
+      content: ''; position: absolute;
+      left: 0; top: 0; bottom: 0; width: 4px;
+    }
+    .task-card.urgency-retard::before { background: var(--red); }
+    .task-card.urgency-urgent::before { background: var(--amber); }
+    .task-card.urgency-en-cours::before { background: var(--blue-acc); }
+    .task-card.urgency-done::before { background: var(--green); }
+    .task-card-body { flex: 1; min-width: 0; }
+    .task-card-id { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px; }
+    .task-card-name { font-family: var(--font-head); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); }
+    .task-card-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+    .task-card-crit { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+    .task-card-crit.niv1 { background: rgba(220,38,38,0.12); color: var(--red); }
+    .task-card-crit.niv2 { background: rgba(217,119,6,0.12); color: var(--amber); }
+    .task-card-crit.niv3 { background: rgba(22,163,74,0.12); color: var(--green); }
+    .task-card-urgency-tag { font-size: 10px; font-weight: 700; }
+    .task-card-urgency-tag.retard { color: var(--red); }
+    .task-card-urgency-tag.urgent { color: var(--amber); }
+    .task-card-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+    .task-card-progress { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+    .btn-quick-scan {
+      padding: 6px 12px;
+      background: var(--blue-glow);
+      border: 1px solid rgba(37,99,235,0.3);
+      border-radius: 20px;
+      color: var(--blue-acc);
+      font-family: var(--font-head);
+      font-size: 12px; font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .btn-quick-scan:active { background: var(--blue-acc); color: #fff; transform: scale(0.95); }
+    .btn-quick-scan.done-btn { background: var(--green-glow); border-color: rgba(22,163,74,0.3); color: var(--green); cursor: default; }
+    .tasks-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 32px; gap: 12px; color: var(--text-muted); }
+    .tasks-empty-icon { font-size: 42px; }
+    .tasks-empty-text { font-size: 14px; text-align: center; line-height: 1.55; }
+    /* =====================================================
+       DELETE SHEET (Nouveau menu de suppression)
+    ===================================================== */
+    #delete-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 220; opacity: 0; pointer-events: none; transition: opacity 0.28s ease; }
+    #delete-overlay.open { opacity: 1; pointer-events: all; }
+    #delete-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-card); border-radius: 22px 22px 0 0; border-top: 1px solid var(--border); z-index: 221; max-height: 88vh; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.4,0,0.2,1); }
+    #delete-sheet.open { transform: translateY(0); }
+    /* =====================================================
+       RAPPORT TERRAIN (Commentaire & Photo)
+    ===================================================== */
+    .report-section { margin: 0 14px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; }
+    .report-label { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; display: block; }
+    .report-textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; color: var(--text-primary); font-size: 14px; font-family: var(--font-body); outline: none; resize: vertical; min-height: 70px; margin-bottom: 12px; }
+    .report-textarea:focus { border-color: var(--blue-acc); }
+    .btn-photo { width: 100%; padding: 12px; background: var(--bg-card2); border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); font-family: var(--font-head); font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.15s; }
+    .btn-photo:active { background: var(--border); }
+    .photo-preview-container { margin-top: 10px; display: none; align-items: center; justify-content: space-between; background: var(--green-glow); border: 1px solid rgba(22,163,74,0.3); border-radius: var(--radius-sm); padding: 10px 14px; }
+    .photo-preview-container.has-photo { display: flex; }
+    .photo-preview-text { font-size: 13px; font-weight: 700; color: var(--green); display:flex; align-items:center; gap:6px;}
+    .photo-actions-row { display: flex; gap: 8px; }
+    .btn-view-photo { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: var(--blue-acc); cursor: pointer; }
+    .btn-view-photo:active { background: var(--blue-glow); }
+    .btn-delete-photo { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: var(--red); cursor: pointer; }
+    .btn-delete-photo:active { background: var(--red-glow); }
+
+    /* Modal Plein écran pour la photo */
+    #photo-fullscreen-modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    #photo-fullscreen-modal.open { opacity: 1; pointer-events: all; }
+    .photo-modal-header { padding: 16px; display: flex; justify-content: flex-end; }
+    .btn-close-modal { background: rgba(255,255,255,0.2); border: none; width: 40px; height: 40px; border-radius: 20px; color: #fff; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .photo-modal-img { flex: 1; width: 100%; object-fit: contain; padding-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+<div id="loader-screen">
+  <div class="spinner"></div>
+  <div class="loader-title">Chargement des données</div>
+  <div class="loader-sub">Connexion au serveur BIM…</div>
+</div>
+
+<div id="error-screen" class="hidden">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Impossible de charger</div>
+  <div class="error-msg" id="error-msg-text">Vérifiez votre connexion. Les données ne sont pas encore disponibles hors-ligne.</div>
+  <button class="btn-retry" onclick="initApp()">🔄 Réessayer</button>
+</div>
+
+<div id="view-login" class="view hidden">
+  <div class="login-logo">🏗️</div>
+  <div class="login-app-name">Scan-to-BIM</div>
+  <div class="login-tagline">Application de suivi de chantier BIM</div>
+  <div class="login-form">
+    <div class="login-field">
+      <div class="login-label">Identifiant</div>
+      <input class="login-input" type="text" id="login-user" placeholder="tech ou admin"
+             autocomplete="username" autocorrect="off" autocapitalize="none" spellcheck="false" />
+    </div>
+    <div class="login-field">
+      <div class="login-label">Mot de passe</div>
+      <input class="login-input" type="password" id="login-pass" placeholder="••••••••"
+             autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <div class="login-error" id="login-error">Identifiant ou mot de passe incorrect.</div>
+    <button class="btn-login" onclick="doLogin()">Se connecter →</button>
+  </div>
+</div>
+
+<!-- =====================================================
+     VUE PROJETS
+===================================================== -->
+<div id="view-projects" class="view hidden">
+  <div class="header">
+    <div class="header-title-wrap">
+      <div class="header-project">Mes Projets</div>
+    </div>
+    <div class="header-actions">
+      <span class="role-badge tech"></span>
+      <button class="btn-signout" onclick="clearProjects()" title="Vider les données en cache">🗑️</button>
+      <button class="btn-signout" style="color: var(--red); border-color: rgba(239,68,68,0.3); display: flex; align-items: center; justify-content: center; padding: 6px 10px;" onclick="openDeleteSheet()" title="Vider la base de données Cloud">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+          <line x1="9" y1="13" x2="15" y2="19"></line>
+          <line x1="15" y1="13" x2="9" y2="19"></line>
+        </svg>
+      </button>
+      <button class="btn-sync" onclick="handleSync()">
+        <div class="sync-dot"></div>
+        <span>🔄</span>
+        <span class="sync-count-label">Synchro</span>
+      </button>
+      <button class="btn-signout" onclick="handleSignOut()" title="Se déconnecter">⏻</button>
+    </div>
+  </div>
+
+  <div class="scroll-body">
+    <div class="search-wrap" style="position: static; padding-bottom: 0;">
+      <div class="search-row">
+        <div class="search-bar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-project-input" placeholder="Chercher un projet…" oninput="renderProjects(); toggleClearBtn('search-project-input', 'clear-project-btn')" autocomplete="off" autocorrect="off" spellcheck="false" />
+          <div class="search-clear" id="clear-project-btn" onclick="clearSearch('search-project-input', 'clear-project-btn'); renderProjects()">✕</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="projects-list-container" style="padding-top: 10px;"></div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab-item active">
+      <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue-acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      </div>
+      <div class="tab-label" style="color:var(--blue-acc)">Data</div>
+    </div>
+    <div class="tab-item" onclick="showTasksView()">
+      <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <div class="tab-label">Tâches</div>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================
+     VUE LISTE
+===================================================== -->
+<div id="view-list" class="view hidden">
+  <div class="header">
+    <button class="header-back" onclick="showProjectsView()">‹</button>
+    <div class="header-title-wrap">
+      <div class="header-project" id="list-project-name">...</div>
+    </div>
+    <div class="header-actions">
+      <span class="role-badge tech"></span>
+      <button class="btn-sync" onclick="handleSync()">
+        <div class="sync-dot"></div>
+        <span>🔄</span>
+        <span class="sync-count-label">Synchro</span>
+      </button>
+      <button class="btn-signout" onclick="handleSignOut()" title="Se déconnecter">⏻</button>
+    </div>
+  </div>
+
+  <div class="scroll-body" id="list-scroll">
+    <div class="search-wrap">
+      <div class="search-row">
+        <div class="search-bar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-input" placeholder="Rechercher…" oninput="applyFilters(); toggleClearBtn('search-input', 'clear-list-btn')" autocomplete="off" autocorrect="off" spellcheck="false" />
+          <div class="search-clear" id="clear-list-btn" onclick="clearSearch('search-input', 'clear-list-btn'); applyFilters()">✕</div>
+        </div>
+        <button id="btn-filter" onclick="openFilterSheet()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          <div class="filter-count-badge" id="filter-count-badge">0</div>
+        </button>
+      </div>
+    </div>
+
+    <div id="piece-list-container"></div>
+    <div class="list-bottom-pad"></div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab-item active">
+      <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue-acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      </div>
+      <div class="tab-label" style="color:var(--blue-acc)">Data</div>
+    </div>
+    <div class="tab-item" onclick="showTasksView()">
+      <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <div class="tab-label">Tâches</div>
+    </div>
+  </div>
+</div>
+
+<div id="filter-overlay" onclick="closeFilterSheet()"></div>
+<div id="filter-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">Filtrer</div>
+    <div class="sheet-close" onclick="closeFilterSheet()">✕</div>
+  </div>
+  <div class="sheet-scroll" id="filter-sheet-body"></div>
+  <div class="sheet-footer">
+    <button class="btn-sheet-clear" onclick="clearAllFilters()">Tout effacer</button>
+    <button class="btn-sheet-done" onclick="applyAndCloseFilter()">Appliquer</button>
+  </div>
+</div>
+
+<div id="assign-overlay" onclick="closeAssignSheet()"></div>
+<div id="assign-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">Attribution des dates</div>
+    <div class="sheet-close" onclick="closeAssignSheet()">✕</div>
+  </div>
+  <div class="sheet-scroll">
+    <div class="assign-mode-tabs">
+      <button class="assign-mode-tab active" id="tab-assign-floor" onclick="setAssignMode('floor')">Tout l'étage</button>
+      <button class="assign-mode-tab" id="tab-assign-criticite" onclick="setAssignMode('criticite')">Par criticité</button>
+      <button class="assign-mode-tab" id="tab-assign-manual" onclick="setAssignMode('manual')">Sélection manuelle</button>
+    </div>
+
+    <div class="assign-panel" id="assign-panel-floor">
+      <div class="assign-info-card">
+        Les dates seront attribuées à tous les locaux ayant le même <strong>projet</strong> et le même <strong>niveau</strong> que le local actuel.
+      </div>
+      <div class="assign-preview" id="assign-floor-preview">0 local ciblé</div>
+    </div>
+
+    <div class="assign-panel hidden" id="assign-panel-criticite">
+      <div class="assign-info-card">
+        Sélectionne une ou plusieurs criticités à l'intérieur de l'étage courant.
+      </div>
+      <div class="assign-check-list">
+        <div class="filter-checkbox-row" onclick="toggleAssignCriticite('NIV 1')">
+          <div class="filter-checkbox-label">NIV 1</div>
+          <div class="custom-cb" id="assign-crit-NIV_1"></div>
+        </div>
+        <div class="filter-checkbox-row" onclick="toggleAssignCriticite('NIV 2')">
+          <div class="filter-checkbox-label">NIV 2</div>
+          <div class="custom-cb" id="assign-crit-NIV_2"></div>
+        </div>
+        <div class="filter-checkbox-row" onclick="toggleAssignCriticite('NIV 3')">
+          <div class="filter-checkbox-label">NIV 3</div>
+          <div class="custom-cb" id="assign-crit-NIV_3"></div>
+        </div>
+      </div>
+      <div class="assign-preview" id="assign-criticite-preview">0 local ciblé</div>
+    </div>
+
+    <div class="assign-panel hidden" id="assign-panel-manual">
+      <div class="search-row" style="margin-top: 6px; margin-bottom: 10px;">
+        <div class="search-bar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="assign-manual-search" placeholder="Rechercher un local..." oninput="renderAssignManualList()" autocomplete="off" autocorrect="off" spellcheck="false" />
+          <div class="search-clear" id="assign-manual-clear" onclick="clearSearch('assign-manual-search', 'assign-manual-clear'); renderAssignManualList()">✕</div>
+        </div>
+      </div>
+      <div class="assign-manual-actions">
+        <button class="btn-sheet-clear" style="padding:10px 12px;" onclick="assignSelectAllManual()">Tout sélectionner</button>
+        <button class="btn-sheet-clear" style="padding:10px 12px;" onclick="assignClearManual()">Tout effacer</button>
+      </div>
+      <div class="assign-manual-list" id="assign-manual-list"></div>
+      <div class="assign-preview" id="assign-manual-preview">0 local ciblé</div>
+    </div>
+  </div>
+  <div class="sheet-footer" style="padding: 12px 16px;">
+    <div style="display: flex; gap: 8px; width: 100%;">
+      <button class="btn-sheet-clear" style="flex: 1; padding: 12px 0;" onclick="closeAssignSheet()">Annuler</button>
+      <button class="btn-sheet-clear" style="flex: 1; padding: 12px 0; color: var(--red); border-color: rgba(239,68,68,0.3);" onclick="confirmAssignDates(true)">Effacer</button>
+      <button class="btn-sheet-done" style="flex: 1.5; padding: 12px 0;" onclick="confirmAssignDates(false)">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================
+     VUE DÉTAIL
+===================================================== -->
+<div id="delete-overlay" onclick="closeDeleteSheet()"></div>
+<div id="delete-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title" style="color: var(--red);">Supprimer des projets</div>
+    <div class="sheet-close" onclick="closeDeleteSheet()">✕</div>
+  </div>
+  <div class="sheet-scroll">
+    <div class="assign-info-card" style="border-color: rgba(239,68,68,0.3); background: var(--red-glow); color: var(--red);">
+      <strong>Attention :</strong> La suppression effacera les données du serveur (Sheet) et les images du Drive de façon permanente.
+    </div>
+    <div class="assign-manual-actions">
+      <button class="btn-sheet-clear" style="padding:10px 12px;" onclick="deleteSelectAll()">Tout cocher</button>
+      <button class="btn-sheet-clear" style="padding:10px 12px;" onclick="deleteClearAll()">Tout décocher</button>
+    </div>
+    <div class="assign-manual-list" id="delete-project-list"></div>
+  </div>
+  <div class="sheet-footer" style="padding: 12px 16px;">
+    <div style="display: flex; gap: 8px; width: 100%;">
+      <button class="btn-sheet-clear" style="flex: 1; padding: 12px 0;" onclick="closeDeleteSheet()">Annuler</button>
+      <button class="btn-sheet-done" style="flex: 1.5; padding: 12px 0; background: var(--red); box-shadow: 0 4px 16px rgba(239,68,68,0.3);" onclick="confirmDeleteProjects()">Supprimer la sélection</button>
+    </div>
+  </div>
+</div>
+<div id="view-detail" class="view hidden">
+  <div class="header">
+    <button class="header-back" onclick="goBack()">‹</button>
+    <div class="header-title-wrap">
+      <div class="header-local-name" id="detail-header-local">—</div>
+      <div class="header-project-small" id="detail-header-project">—</div>
+    </div>
+  </div>
+
+  <div class="scroll-body">
+    <div class="detail-hero" style="padding-bottom: 0;">
+      <div>
+        <div class="detail-hero-project" id="detail-project-name" style="font-size: 22px;">—</div>
+        <div class="detail-hero-niveau" id="detail-niveau">—</div>
+      </div>
+    </div>
+
+    <div class="plan-container" id="plan-container">
+      <div class="plan-missing" id="plan-missing-text">Chargement du plan...</div>
+      <img id="plan-image-element" class="plan-image hidden" src="" alt="Plan du local" />
+      <div id="plan-overlay-id" class="plan-overlay-text hidden">—</div>
+      <button id="btn-fullscreen" class="btn-fullscreen hidden" onclick="toggleFullscreen()">
+        <svg id="fs-icon-expand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+        <svg id="fs-icon-compress" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+      </button>
+    </div>
+
+    <div class="banner green hidden" id="detail-completed-banner">
+      <div class="banner-icon">✅</div>
+      <div>SCAN 100% TERMINÉ</div>
+    </div>
+
+    <div class="banner amber hidden" id="detail-countdown-banner">
+      <div class="banner-icon">⏳</div>
+      <div id="detail-countdown-msg">Il vous reste X jours.</div>
+    </div>
+
+    <div class="banner red hidden" id="detail-retard-banner">
+      <div class="banner-icon">🚨</div>
+      <div id="detail-retard-msg">RETARD CHANTIER</div>
+    </div>
+
+    <div id="admin-dates-section" class="hidden">
+      <div class="admin-date-label">Date Debut de Pose</div>
+      <input type="date" id="admin-input-debut" class="date-input-full" onchange="onAdminDateChange('debut_scan', this.value)">
+
+      <div class="admin-date-label">Date de Fermeture</div>
+      <input type="date" id="admin-input-fermeture" class="date-input-full" onchange="onAdminDateChange('date_fermeture', this.value)">
+
+      <button class="btn-assign-dates" onclick="openAssignSheet()">
+        🎯 Attribuer ces dates à d'autres locaux...
+      </button>
+    </div>
+
+    <div class="detail-section-title" id="detail-local-name" style="display:none;">—</div>
+
+    <div class="info-table">
+      <div class="info-row" id="row-id-local">
+        <div class="info-label">ID_Local</div>
+        <div class="info-value" id="d-id-local">—</div>
+      </div>
+      <div class="info-row hidden" id="row-densite">
+        <div class="info-label">Densité</div>
+        <div class="info-value" id="d-densite">—</div>
+      </div>
+      <div class="info-row" id="row-criticite">
+        <div class="info-label">Criticité</div>
+        <div class="info-value" id="d-criticite">—</div>
+      </div>
+      <div class="info-row" id="row-passages">
+        <div class="info-label">Passages requis</div>
+        <div class="info-value" id="d-passages">—</div>
+      </div>
+      <div class="info-row hidden" id="row-stations">
+        <div class="info-label">Stations</div>
+        <div class="info-value" id="d-stations">—</div>
+      </div>
+      <div class="info-row hidden" id="row-resolution">
+        <div class="info-label">Résolution</div>
+        <div class="info-value" id="d-resolution">—</div>
+      </div>
+      <div class="info-row" id="row-debut">
+        <div class="info-label">Début du scan</div>
+        <div class="info-value" id="d-debut">—</div>
+      </div>
+      <div class="info-row hidden" id="row-fermeture">
+        <div class="info-label">Date fermeture</div>
+        <div class="info-value" id="d-fermeture">—</div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-header">
+        <div class="progress-title">Passages_Réalisés</div>
+        <div class="progress-count" id="detail-progress-count">0 / 0</div>
+      </div>
+      <div class="progress-track-big">
+        <div class="progress-fill-big" id="detail-progress-bar" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="bottom-actions" id="action-buttons-container">
+      <button class="btn-validate primary hidden" id="btn-valider" onclick="validerPassage()">✅ Valider un passage</button>
+      <button class="btn-cancel hidden" id="btn-annuler" onclick="annulerDernierPassage()">✕ Annuler le dernier passage</button>
+    </div>
+
+    <div class="report-section" id="report-terrain-section">
+      <label class="report-label">📝 Commentaire / Anomalie</label>
+      <textarea id="detail-commentaire" class="report-textarea" placeholder="Signaler un problème (porte fermée...)" onchange="onCommentaireChange(this.value)"></textarea>
+      
+      <label class="report-label" style="margin-top: 4px;">📸 Preuve visuelle</label>
+      <input type="file" id="detail-photo-input" accept="image/*" capture="environment" style="display: none;" onchange="handlePhotoSelection(event)">
+      <button class="btn-photo" id="btn-take-photo" onclick="document.getElementById('detail-photo-input').click()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        Prendre une photo
+      </button>
+      
+      <div class="photo-preview-container" id="photo-preview-container">
+        <div class="photo-preview-text">📸 Photo jointe</div>
+        <div class="photo-actions-row">
+          <button class="btn-view-photo" onclick="openPhotoModal()">Voir</button>
+          <button class="btn-delete-photo" onclick="removePhoto()">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+
+  <div class="tab-bar">
+    <div class="tab-item active">
+      <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue-acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      </div>
+      <div class="tab-label" style="color:var(--blue-acc)">Data</div>
+    </div>
+    <div class="tab-item" onclick="showTasksView()">
+      <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <div class="tab-label">Tâches</div>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================
+     VUE TÂCHES — MOTEUR DE TOURNÉE
+===================================================== -->
+<div id="view-tasks" class="view hidden">
+  <div class="header">
+    <div class="header-title-wrap">
+      <div class="header-project">Ma Tournée</div>
+    </div>
+    <div class="header-actions">
+      <span class="role-badge tech"></span>
+      <button class="btn-sync" onclick="handleSync()">
+        <div class="sync-dot"></div>
+        <span>🔄</span>
+        <span class="sync-count-label">Synchro</span>
+      </button>
+      <button class="btn-signout" onclick="handleSignOut()" title="Se déconnecter">⏻</button>
+    </div>
+  </div>
+
+  <div class="scroll-body" style="padding-bottom: calc(var(--tab-h) + 16px);">
+
+    <div class="tasks-dashboard">
+      <div>
+        <div class="tasks-kpi-label">Productivité du jour</div>
+        <div class="tasks-kpi-value" id="kpi-passages-jour">0</div>
+        <div class="tasks-kpi-unit">passage(s) réalisé(s)</div>
+      </div>
+      <button class="btn-next-task" onclick="goToNextTask()">
+        🎯 Prochain<br>local
+      </button>
+    </div>
+
+    <div class="tasks-list-wrap" id="tasks-list-container"></div>
+
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab-item" onclick="showProjectsView()">
+      <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      </div>
+      <div class="tab-label">Data</div>
+    </div>
+    <div class="tab-item active">
+      <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue-acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <div class="tab-label" style="color:var(--blue-acc)">Tâches</div>
+    </div>
+  </div>
+</div>
+<div id="photo-fullscreen-modal">
+  <div class="photo-modal-header"><button class="btn-close-modal" onclick="closePhotoModal()">✕</button></div>
+  <img id="modal-img-element" class="photo-modal-img" src="" alt="Photo plein écran">
+</div> 
+<div id="toast"></div>
+
+<script>
+var KEY_PIECES  = "bim_pieces";
+var KEY_QUEUE   = "bim_queue";
+var KEY_SESSION = "bim_session";
+var savedProjectOrder = safeGetStorage("bim_project_order") || [];
+var USERS = {
+  "tech":  { password: "bim", role: "utilisateur" },
+  "admin": { password: "bim", role: "planificateur" }
+};
+var WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyklY69b7XFtRiGgnnJHkpRbZJZFquNADW6hyfrcU4ZevArUku3Jma0K8mVAoPXT-Ho/exec";
+
+
+var allPieces = [];
+var queue = [];
+var currentPiece = null;
+var currentProject = null;
+var session = null;
+var activeFilters = { niveau: [], criticite: [] };
+var assignState = {
+  mode: "floor",
+  criticites: [],
+  manualIds: []
+};
+var detailNavigationSource = 'list'; // NOUVEAU : mémorise la page précédente
+
+window.addEventListener("DOMContentLoaded", function() {
+  session = safeGetStorage(KEY_SESSION);
+  
+  // --- NOUVEAU : ACTIVATION DU DRAG & DROP ---
+  var container = document.getElementById("projects-list-container");
+  if (typeof Sortable !== 'undefined' && container) {
+    new Sortable(container, {
+      animation: 150,
+      delay: 200, // On demande de rester appuyé 200ms sur téléphone avant de déplacer
+      delayOnTouchOnly: true,
+      ghostClass: 'fantome-drag',
+      onEnd: function (evt) {
+        // Cette fonction se déclenche quand tu relâches la carte
+        var newOrder = [];
+        var cards = container.querySelectorAll('.summary-card');
+        cards.forEach(function(card) {
+          var projName = card.getAttribute('data-id');
+          if(projName) newOrder.push(projName);
+        });
+        savedProjectOrder = newOrder; // Met à jour la variable
+        safeSetStorage("bim_project_order", savedProjectOrder); // Sauvegarde dans le téléphone
+        showToast("✅ Nouvel ordre enregistré");
+      }
+    });
+  }
+  // -------------------------------------------
+
+  if (session && session.role) { initApp(); }
+  else { showLoginView(); }
+});
+function getDailyKPI() {
+  var today = new Date().toISOString().split('T')[0]; // Récupère la date "AAAA-MM-JJ"
+  var kpi = safeGetStorage("bim_kpi_jour");
+  if (kpi && kpi.date === today) return kpi.count;
+  return 0; // Si c'est un nouveau jour, on repart à 0
+}
+
+function incrementDailyKPI() {
+  var today = new Date().toISOString().split('T')[0];
+  var count = getDailyKPI() + 1;
+  safeSetStorage("bim_kpi_jour", { date: today, count: count }); // Sauvegarde dans le téléphone
+  return count;
+}
+
+function showLoginView() {
+  showLoader(false); hideError();
+  activateView("view-login");
+}
+
+function doLogin() {
+  var u = (document.getElementById("login-user").value || "").trim().toLowerCase();
+  var p = (document.getElementById("login-pass").value || "").trim();
+  var errEl = document.getElementById("login-error");
+  if (USERS[u] && USERS[u].password === p) {
+    errEl.classList.remove("show");
+    session = { username: u, role: USERS[u].role };
+    safeSetStorage(KEY_SESSION, session);
+    document.getElementById("login-pass").value = "";
+    initApp();
+  } else {
+    errEl.classList.add("show");
+    document.getElementById("login-pass").value = "";
+  }
+}
+
+function handleSignOut() {
+  // NOUVEAU : Blocage si données en attente
+  if (queue && queue.length > 0) {
+    showToast("⚠️ Il faut synchroniser avant de quitter !");
+    return; 
+  }
+  
+  safeRemoveStorage(KEY_SESSION);
+  safeRemoveStorage(KEY_PIECES);
+  safeRemoveStorage(KEY_QUEUE);
+  allPieces = []; queue = []; currentPiece = null; session = null;
+  activeFilters = { niveau: [], criticite: [] };
+  // kpiPassagesJour = 0; (si tu avais gardé cette variable, sinon ignore)
+  showLoginView();
+}
+
+function initApp() {
+  showLoader(true); hideError();
+  var cached = safeGetStorage(KEY_PIECES);
+  if (cached && cached.length > 0) {
+    allPieces = cached;
+    queue = safeGetStorage(KEY_QUEUE) || [];
+    showProjectsView();
+    showLoader(false);
+    refreshFromServer(true);
+    return;
+  }
+  refreshFromServer(false);
+}
+
+function refreshFromServer(silent) {
+  if (!silent) showLoader(true);
+  
+  fetch(WEBHOOK_URL + "?action=getBIMData")
+    .then(response => response.json())
+    .then(function(pieces) {
+      if (!pieces || pieces.length === 0) {
+        if (!silent) showError("Aucune donnée trouvée dans la feuille 'Data'.");
+        return;
+      }
+      if (queue.length > 0) pieces = mergeQueueIntoFreshData(pieces);
+      allPieces = pieces;
+      safeSetStorage(KEY_PIECES, allPieces);
+      
+      if (!silent) { showProjectsView(); showLoader(false); }
+      else {
+        renderProjects();
+        if(currentProject) applyFilters();
+        var tasksEl = document.getElementById("view-tasks");
+        if (tasksEl && tasksEl.classList.contains("active")) renderTasksView();
+      }
+    })
+    .catch(function(err) {
+      if (!silent) { showError("Erreur de connexion : " + err.message); }
+    });
+}
+
+function mergeQueueIntoFreshData(fresh) {
+  var scanMap = {};
+  queue.forEach(function(q) {
+    if (q.type !== "date" && q.rowIndex !== undefined) scanMap[q.rowIndex] = q.newCompteur;
+  });
+  return fresh.map(function(p) {
+    if (scanMap[p.rowIndex] !== undefined) p.compteur_passages = scanMap[p.rowIndex];
+    return p;
+  });
+}
+
+function activateView(id) {
+  document.querySelectorAll(".view").forEach(function(v) {
+    v.id === id ? (v.classList.remove("hidden"), v.classList.add("active"))
+               : (v.classList.remove("active"), v.classList.add("hidden"));
+  });
+}
+
+/* =====================================================
+   NOUVEAU SYSTÈME DE SUPPRESSION MULTI-PROJETS
+===================================================== */
+var deleteState = { selectedProjects: [] };
+
+function openDeleteSheet() {
+  if (session && session.role !== "planificateur") {
+    showToast("❌ Accès refusé : Réservé aux administrateurs.");
+    return;
+  }
+  deleteState.selectedProjects = [];
+  document.getElementById("delete-overlay").classList.add("open");
+  document.getElementById("delete-sheet").classList.add("open");
+  renderDeleteList();
+}
+
+function closeDeleteSheet() {
+  document.getElementById("delete-overlay").classList.remove("open");
+  document.getElementById("delete-sheet").classList.remove("open");
+}
+
+function renderDeleteList() {
+  var container = document.getElementById("delete-project-list");
+  container.innerHTML = "";
+  
+  var uniqueProjects = [];
+  allPieces.forEach(function(p) {
+    var proj = p.nom_projet || "Sans Projet";
+    if (uniqueProjects.indexOf(proj) === -1) uniqueProjects.push(proj);
+  });
+
+  if (uniqueProjects.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:28px 16px;"><div class="empty-state-text">Aucun projet trouvé.</div></div>';
+    return;
+  }
+
+  uniqueProjects.forEach(function(proj) {
+    var isChecked = deleteState.selectedProjects.indexOf(proj) >= 0;
+    container.innerHTML += `
+      <div class="assign-manual-row" onclick="toggleDeleteProject('${escHtml(proj)}')">
+        <div class="assign-manual-info"><div class="assign-manual-name">${escHtml(proj)}</div></div>
+        <div class="custom-cb ${isChecked ? 'checked' : ''}" id="del-cb-${escId(proj)}"></div>
+      </div>`;
+  });
+}
+
+function toggleDeleteProject(proj) {
+  var idx = deleteState.selectedProjects.indexOf(proj);
+  if (idx >= 0) deleteState.selectedProjects.splice(idx, 1);
+  else deleteState.selectedProjects.push(proj);
+  
+  var cb = document.getElementById("del-cb-" + escId(proj));
+  if (cb) cb.classList.toggle("checked", deleteState.selectedProjects.indexOf(proj) >= 0);
+}
+
+function deleteSelectAll() {
+  var uniqueProjects = [];
+  allPieces.forEach(function(p) {
+    var proj = p.nom_projet || "Sans Projet";
+    if (uniqueProjects.indexOf(proj) === -1) uniqueProjects.push(proj);
+  });
+  deleteState.selectedProjects = uniqueProjects.slice();
+  renderDeleteList();
+}
+
+function deleteClearAll() { deleteState.selectedProjects = []; renderDeleteList(); }
+
+function confirmDeleteProjects() {
+  if (deleteState.selectedProjects.length === 0) {
+    showToast("⚠️ Cochez au moins un projet à supprimer");
+    return;
+  }
+  var msg = "⚠️ Vous allez SUPPRIMER " + deleteState.selectedProjects.length + " projet(s) du serveur et du Drive.\n\nContinuer ?";
+  if (confirm(msg)) {
+    var code = prompt("Tapez 'SUPPRIMER' pour confirmer :");
+    if (code === "SUPPRIMER") {
+      showLoader(true);
+      document.querySelector(".loader-sub").textContent = "Suppression de " + deleteState.selectedProjects.length + " projet(s)...";
+      
+      fetch(WEBHOOK_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'deleteSpecificProjects', projects: deleteState.selectedProjects })
+      })
+      .then(response => response.json())
+      .then(function() {
+        allPieces = allPieces.filter(function(p) { return deleteState.selectedProjects.indexOf(p.nom_projet) === -1; });
+        safeSetStorage(KEY_PIECES, allPieces);
+        closeDeleteSheet();
+        renderProjects();
+        showLoader(false);
+        showToast("🚨 Projets supprimés avec succès !");
+      })
+      .catch(function(err) {
+        showLoader(false);
+        showError("Erreur de suppression");
+      });
+    } else {
+      showToast("❌ Annulé : Mot de passe incorrect.");
+    }
+  }
+}
+
+function clearProjects() {
+  if (confirm("Voulez-vous vraiment vider les données du téléphone ? Vous devrez télécharger à nouveau les projets.")) {
+    safeRemoveStorage(KEY_PIECES);
+    safeRemoveStorage(KEY_QUEUE);
+    allPieces = [];
+    queue = [];
+    renderProjects();
+    updateSyncBtn();
+    showToast("🗑️ Données vidées avec succès");
+  }
+}
+
+function showProjectsView() {
+  activateView("view-projects");
+  updateRoleBadge();
+  renderProjects();
+  updateSyncBtn();
+}
+
+function openProject(nom) {
+  currentProject = nom;
+  document.getElementById("list-project-name").textContent = nom;
+  showListView();
+}
+
+function showListView() {
+  activateView("view-list");
+  updateRoleBadge();
+  buildFilterSheetHTML();
+  applyFilters();
+  updateSyncBtn();
+}
+
+function openDetail(idLocal, source) {
+  var piece = findPiece(idLocal);
+  if (!piece) return;
+  currentPiece = piece;
+  detailNavigationSource = source || 'list'; // Enregistre d'où on vient
+  activateView("view-detail");
+  renderDetail(piece);
+}
+
+function goBack() { 
+  // Retour intelligent
+  if (detailNavigationSource === 'tasks') {
+    showTasksView();
+  } else {
+    showListView(); 
+  }
+}
+
+function updateRoleBadge() {
+  if (!session) return;
+  var els = document.querySelectorAll(".role-badge");
+  els.forEach(function(el) {
+    if (session.role === "planificateur") { el.textContent = "Admin"; el.className = "role-badge admin"; }
+    else { el.textContent = "Utilisateur"; el.className = "role-badge tech"; }
+  });
+}
+
+function renderProjects() {
+  var container = document.getElementById("projects-list-container");
+  var searchInput = document.getElementById("search-project-input");
+  var searchText = searchInput ? searchInput.value.toLowerCase().trim() : "";
+
+  if (typeof allPieces === "string") {
+    try { allPieces = JSON.parse(allPieces); } catch(e) { allPieces = []; }
+  }
+
+  if (!allPieces || !Array.isArray(allPieces) || allPieces.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">Aucun projet en cache.</div><button class="btn-sync" style="margin-top:15px; background:var(--blue-acc); color:#fff; border-radius:8px; border:none; padding: 10px 20px; font-weight:bold; cursor:pointer;" onclick="refreshFromServer(false)">Télécharger les données</button></div>';
+    return;
+  }
+
+  var statsProjets = {};
+  allPieces.forEach(function(p) {
+    if (!p) return;
+    var nom = p.nom_projet || "Sans Projet";
+    if (searchText && !nom.toLowerCase().includes(searchText)) return;
+    if(!statsProjets[nom]) statsProjets[nom] = { total: 0, termines: 0 };
+    statsProjets[nom].total++;
+    if(isComplete(p)) statsProjets[nom].termines++;
+  });
+
+  // --- NOUVEAU : TRI DES CARTES SELON LA MÉMOIRE ---
+  var cardsHtml = {};
+  var projectNames = [];
+  var count = 0;
+
+  for (var proj in statsProjets) {
+    count++;
+    projectNames.push(proj);
+    var s = statsProjets[proj];
+    var restants = s.total - s.termines;
+    var pct = s.total > 0 ? Math.round((s.termines / s.total) * 100) : 0;
+    
+    var isFull = pct === 100;
+    var barColor = isFull ? 'background: linear-gradient(90deg, #22c55e, #16a34a);' : '';
+    var pctColor = isFull ? 'color: var(--green);' : '';
+
+    // On ajoute data-id="${escHtml(proj)}" pour que SortableJS reconnaisse le projet
+    cardsHtml[proj] = `
+    <div class="summary-card" data-id="${escHtml(proj)}" onclick="openProject('${escHtml(proj)}')">
+      <div class="summary-title-row">
+        <div class="summary-title">🏢 ${escHtml(proj)}</div>
+        <div class="summary-arrow">›</div>
+      </div>
+      <div class="summary-stats-grid">
+        <div class="stat-box">
+          <div class="stat-value">${s.total}</div>
+          <div class="stat-label">Locaux</div>
+        </div>
+        <div class="stat-box success">
+          <div class="stat-value" style="color: var(--green);">${s.termines}</div>
+          <div class="stat-label">Terminés</div>
+        </div>
+        <div class="stat-box warning">
+          <div class="stat-value" style="color: var(--amber);">${restants}</div>
+          <div class="stat-label">Restants</div>
+        </div>
+      </div>
+      <div class="progress-wrapper">
+        <div class="progress-label-row">
+          <div class="progress-label-text">Avancement du chantier</div>
+          <div class="progress-pct" style="${pctColor}">${pct}%</div>
+        </div>
+        <div class="progress-track-thick">
+          <div class="progress-fill-thick" style="width:${pct}%; ${barColor}"></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // On trie la liste des projets avec l'ordre sauvegardé
+  projectNames.sort(function(a, b) {
+    var indexA = savedProjectOrder.indexOf(a);
+    var indexB = savedProjectOrder.indexOf(b);
+    if (indexA === -1 && indexB === -1) return a.localeCompare(b); // Ordre alpha par défaut
+    if (indexA === -1) return 1; // Les nouveaux projets vont à la fin
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+
+  // On assemble le HTML final
+  var html = "";
+  projectNames.forEach(function(proj) {
+    html += cardsHtml[proj];
+  });
+
+  if (count === 0 && searchText) {
+    html = '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">Aucun projet ne correspond à "'+ escHtml(searchText) +'"</div></div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function getFilterOptions() {
+  var niveaux = {}, crits = {};
+  allPieces.forEach(function(p) {
+    if (p.nom_projet !== currentProject) return;
+    if (p.niveau) niveaux[p.niveau] = true;
+    if (p.criticite) crits[p.criticite] = true;
+  });
+  return {
+    niveaux: Object.keys(niveaux).sort(),
+    criticite: Object.keys(crits).sort()
+  };
+}
+
+function buildFilterSheetHTML() {
+  var opts = getFilterOptions();
+  var body = document.getElementById("filter-sheet-body");
+  body.innerHTML = "";
+  body.appendChild(buildFilterGroup("Niveau", "niveau", opts.niveaux));
+  body.appendChild(buildFilterGroup("Criticité", "criticite", opts.criticite));
+}
+
+function buildFilterGroup(label, key, values) {
+  var group = document.createElement("div");
+  group.className = "filter-group";
+
+  var header = document.createElement("div");
+  header.className = "filter-group-header";
+  header.innerHTML = '<div class="filter-group-label">' + label + '</div>' + '<div class="filter-group-chevron open" id="chev-' + key + '">▾</div>';
+  header.onclick = function() { toggleFilterGroup(key); };
+
+  var items = document.createElement("div");
+  items.className = "filter-group-items";
+  items.id = "fg-" + key;
+
+  values.forEach(function(val) {
+    var isChecked = activeFilters[key].indexOf(val) >= 0;
+    var row = document.createElement("div");
+    row.className = "filter-checkbox-row";
+    row.innerHTML = '<div class="filter-checkbox-label">' + escHtml(val) + '</div>' + '<div class="custom-cb' + (isChecked ? ' checked' : '') + '" id="cb-' + key + '-' + escId(val) + '"></div>';
+    row.onclick = function() { toggleFilterValue(key, val); };
+    items.appendChild(row);
+  });
+
+  group.appendChild(header);
+  group.appendChild(items);
+  return group;
+}
+
+function toggleFilterGroup(key) {
+  var items = document.getElementById("fg-" + key);
+  var chev = document.getElementById("chev-" + key);
+  if (!items) return;
+  items.classList.toggle("collapsed");
+  chev.classList.toggle("open");
+}
+
+function toggleFilterValue(key, val) {
+  var idx = activeFilters[key].indexOf(val);
+  if (idx >= 0) activeFilters[key].splice(idx, 1);
+  else activeFilters[key].push(val);
+  var cbId = "cb-" + key + "-" + escId(val);
+  var cb = document.getElementById(cbId);
+  if (cb) cb.classList.toggle("checked", activeFilters[key].indexOf(val) >= 0);
+  updateFilterBadge();
+}
+
+function updateFilterBadge() {
+  var count = activeFilters.niveau.length + activeFilters.criticite.length;
+  var btn = document.getElementById("btn-filter");
+  var badge = document.getElementById("filter-count-badge");
+  badge.textContent = count;
+  count > 0 ? btn.classList.add("has-filters") : btn.classList.remove("has-filters");
+}
+
+function openFilterSheet() {
+  buildFilterSheetHTML();
+  document.getElementById("filter-overlay").classList.add("open");
+  document.getElementById("filter-sheet").classList.add("open");
+}
+function closeFilterSheet() {
+  document.getElementById("filter-overlay").classList.remove("open");
+  document.getElementById("filter-sheet").classList.remove("open");
+}
+function clearAllFilters() {
+  activeFilters = { niveau: [], criticite: [] };
+  buildFilterSheetHTML();
+  updateFilterBadge();
+}
+function applyAndCloseFilter() {
+  updateFilterBadge();
+  closeFilterSheet();
+  applyFilters();
+}
+
+function applyFilters() {
+  var searchText = (document.getElementById("search-input").value || "").toLowerCase();
+  var container = document.getElementById("piece-list-container");
+  container.innerHTML = "";
+
+  var filtered = allPieces.filter(function(p) {
+    if (p.nom_projet !== currentProject) return false;
+    if (searchText) {
+      var hit = (p.local && p.local.toLowerCase().includes(searchText)) ||
+                (p.niveau && p.niveau.toLowerCase().includes(searchText)) ||
+                (p.id_local && String(p.id_local).toLowerCase().includes(searchText));
+      if (!hit) return false;
+    }
+    if (activeFilters.niveau.length > 0 && activeFilters.niveau.indexOf(p.niveau) < 0) return false;
+    if (activeFilters.criticite.length > 0 && activeFilters.criticite.indexOf(p.criticite) < 0) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">Aucun local pour ces filtres</div></div>';
+    return;
+  }
+
+  var groups = {};
+  filtered.forEach(function(p) {
+    var g = p.niveau || "Sans niveau";
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(p);
+  });
+
+  Object.keys(groups).sort().forEach(function(grp) {
+    var wrap = document.createElement("div");
+    var sh = document.createElement("div");
+    sh.className = "section-header";
+    sh.textContent = grp;
+    wrap.appendChild(sh);
+    var list = document.createElement("div");
+    list.className = "piece-list";
+    groups[grp].forEach(function(p) { list.appendChild(buildPieceCard(p)); });
+    wrap.appendChild(list);
+    container.appendChild(wrap);
+  });
+}
+
+function buildPieceCard(piece) {
+  var card = document.createElement("div");
+  card.className = "piece-card" + (isComplete(piece) ? " done" : "");
+  card.dataset.crit = piece.criticite || "";
+  card.onclick = function() { openDetail(piece.id_local, 'list'); };
+
+  var c = piece.compteur_passages || 0;
+  var p = piece.passages || 0;
+  var ok = isComplete(piece);
+  var bc = ok ? "badge done-badge" : (c > 0 ? "badge warn-badge" : "badge");
+
+  card.innerHTML =
+    '<div class="piece-icon">' + getIcon(piece.local) + '</div>' +
+    '<div class="piece-info">' +
+      '<div class="piece-name">' + escHtml(piece.local) + '</div>' +
+      '<div class="piece-meta">' + escHtml(piece.niveau) + ' · ID ' + escHtml(piece.id_local) + '</div>' +
+    '</div>' +
+    '<div class="piece-right">' +
+      '<div class="' + bc + '">' + c + '/' + p + '</div>' +
+      '<div class="chevron">›</div>' +
+    '</div>';
+  return card;
+}
+
+function toggleFullscreen() {
+  var container = document.getElementById("plan-container");
+  var iconExpand = document.getElementById("fs-icon-expand");
+  var iconCompress = document.getElementById("fs-icon-compress");
+  container.classList.toggle("fullscreen");
+  if (container.classList.contains("fullscreen")) {
+    iconExpand.classList.add("hidden");
+    iconCompress.classList.remove("hidden");
+  } else {
+    iconExpand.classList.remove("hidden");
+    iconCompress.classList.add("hidden");
+  }
+}
+function openPhotoModal() {
+  if (!currentPiece) return;
+  var photoSrc = currentPiece.photo_anomalie_base64 || currentPiece.photo_anomalie_url || "";
+  if (photoSrc !== "") {
+    document.getElementById("modal-img-element").src = photoSrc;
+    document.getElementById("photo-fullscreen-modal").classList.add("open");
+  }
+}
+
+function closePhotoModal() {
+  document.getElementById("photo-fullscreen-modal").classList.remove("open");
+  document.getElementById("modal-img-element").src = "";
+}
+function renderDetail(piece) {
+  var compteur = piece.compteur_passages || 0;
+  var passages = piece.passages || 0;
+  var isDone = isComplete(piece);
+  var pct = passages > 0 ? Math.min(100, Math.round((compteur / passages) * 100)) : 0;
+  var isTech = session && session.role === "utilisateur";
+  var isAdmin = session && session.role === "planificateur";
+
+  document.getElementById("detail-header-local").textContent = piece.nom_projet || "Projet";
+  document.getElementById("detail-header-project").textContent = piece.niveau || "";
+  document.getElementById("detail-project-name").textContent = piece.local || "Local inconnu";
+  document.getElementById("detail-niveau").textContent = "ID " + (piece.id_local || "—");
+
+  var imgEl = document.getElementById("plan-image-element");
+  var missingEl = document.getElementById("plan-missing-text");
+  var overlayEl = document.getElementById("plan-overlay-id");
+
+  if (piece.image_url && piece.image_url !== "") {
+    imgEl.src = piece.image_url;
+    imgEl.classList.remove("hidden");
+    missingEl.classList.add("hidden");
+    overlayEl.classList.add("hidden");
+    document.getElementById("btn-fullscreen").classList.remove("hidden");
+  } else {
+    imgEl.src = "";
+    imgEl.classList.add("hidden");
+    overlayEl.classList.add("hidden");
+    missingEl.textContent = "Aucun plan disponible pour ce type.";
+    missingEl.classList.remove("hidden");
+    document.getElementById("btn-fullscreen").classList.add("hidden");
+  }
+
+  setVisible("detail-completed-banner", isDone);
+  setBanner_countdown_or_retard(piece, isTech, isDone);
+
+  document.getElementById("d-id-local").textContent = piece.id_local || "—";
+  document.getElementById("d-passages").textContent = passages;
+
+  var critRaw = (piece.criticite || "").trim();
+  var critCls = critRaw === "NIV 1" ? "niv1" : critRaw === "NIV 2" ? "niv2" : critRaw === "NIV 3" ? "niv3" : "";
+  document.getElementById("d-criticite").innerHTML = critCls
+    ? '<span class="criticite-badge ' + critCls + '">' + escHtml(critRaw) + '</span>'
+    : (critRaw || "—");
+
+  setRowVisible("row-densite", true);
+  setRowVisible("row-stations", true);
+  setRowVisible("row-resolution", true);
+
+  document.getElementById("d-densite").textContent = piece.densite != null ? piece.densite : "—";
+  document.getElementById("d-stations").textContent = piece.stations || "—";
+  document.getElementById("d-resolution").textContent = piece.resolution || "—";
+
+  if (isAdmin) {
+    document.getElementById("admin-dates-section").classList.remove("hidden");
+    document.getElementById("admin-input-debut").value = piece.debut_scan || "";
+    document.getElementById("admin-input-fermeture").value = piece.date_fermeture || "";
+    resetAssignSelection();
+    setRowVisible("row-debut", false);
+    setRowVisible("row-fermeture", false);
+  } else {
+    var adminSec = document.getElementById("admin-dates-section");
+    if (adminSec) adminSec.classList.add("hidden");
+    setRowVisible("row-debut", true);
+    document.getElementById("d-debut").textContent = fmtDisplayDate(piece.debut_scan) || "—";
+    setRowVisible("row-fermeture", true);
+    var dFermeture = document.getElementById("d-fermeture");
+    if (dFermeture) dFermeture.textContent = fmtDisplayDate(piece.date_fermeture) || "—";
+  }
+  // --- CHARGEMENT DU RAPPORT TERRAIN ---
+  var txtComment = document.getElementById("detail-commentaire");
+  var previewCont = document.getElementById("photo-preview-container");
+  
+  if (txtComment) {
+    txtComment.value = piece.commentaire || "";
+  }
+  
+  var photoSrc = piece.photo_anomalie_base64 || piece.photo_anomalie_url || "";
+  if (photoSrc !== "") {
+    previewCont.classList.add("has-photo");
+  } else {
+    previewCont.classList.remove("has-photo");
+  }
+  // -------------------------------------
+  document.getElementById("detail-progress-count").textContent = compteur + " / " + passages;
+  var bar = document.getElementById("detail-progress-bar");
+  bar.style.width = pct + "%";
+  isDone ? bar.classList.add("full") : bar.classList.remove("full");
+  
+  var btnVal = document.getElementById("btn-valider");
+  var btnAnn = document.getElementById("btn-annuler");
+
+  if (isTech) {
+    btnVal.classList.remove("hidden");
+    if (btnAnn) btnAnn.classList.remove("hidden");
+    if (isDone) {
+      btnVal.textContent = "✅ Scan terminé 🎉";
+      btnVal.className = "btn-validate disabled";
+      btnVal.disabled = true;
+    } else {
+      btnVal.innerHTML = "✅ Valider un passage";
+      btnVal.className = "btn-validate primary";
+      btnVal.disabled = false;
+    }
+    if (btnAnn) btnAnn.disabled = (compteur <= 0);
+  } else {
+    btnVal.classList.add("hidden");
+    if (btnAnn) btnAnn.classList.add("hidden");
+  }
+}
+
+function setBanner_countdown_or_retard(piece, isTech, isDone) {
+  var cntEl = document.getElementById("detail-countdown-banner");
+  var retardEl = document.getElementById("detail-retard-banner");
+  cntEl.classList.add("hidden");
+  retardEl.classList.add("hidden");
+  if (!isTech || isDone || !piece.date_fermeture) return;
+
+  var today = new Date(); today.setHours(0,0,0,0);
+  var fermeture = parseIsoDate(piece.date_fermeture);
+  if (!fermeture) return;
+
+  var diffMs = fermeture.getTime() - today.getTime();
+  var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    document.getElementById("detail-retard-msg").textContent = "RETARD CHANTIER : La date limite prévue était le " + fmtDisplayDate(piece.date_fermeture);
+    retardEl.classList.remove("hidden");
+  } else {
+    var txt = diffDays === 0 ? "⏰ Dernier jour pour scanner cette pièce !" : "Il vous reste " + diffDays + " jour" + (diffDays > 1 ? "s" : "") + " pour scanner cette pièce.";
+    document.getElementById("detail-countdown-msg").textContent = txt;
+    cntEl.classList.remove("hidden");
+  }
+}
+
+function setDateInput(elId, fieldName, isoVal) {
+  var el = document.getElementById(elId);
+  var inp = document.createElement("input");
+  inp.type = "date";
+  inp.value = isoVal;
+  inp.className = "date-input";
+  inp.dataset.field = fieldName;
+  inp.onchange = function() { onAdminDateChange(fieldName, this.value); };
+  el.innerHTML = "";
+  el.appendChild(inp);
+}
+
+function onAdminDateChange(field, newDate) {
+  if (!currentPiece) return;
+  currentPiece[field] = newDate;
+  updatePieceInStorage(currentPiece);
+  addDateToQueue(currentPiece, field, newDate);
+  updateSyncBtn();
+  showToast("📅 Date modifiée");
+}
+
+function validerPassage() {
+  if (!currentPiece || isComplete(currentPiece)) return;
+  currentPiece.compteur_passages = (currentPiece.compteur_passages || 0) + 1;
+  
+  incrementDailyKPI(); // La bonne fonction !
+  
+  updatePieceInStorage(currentPiece);
+  addScanToQueue(currentPiece);
+  renderDetail(currentPiece);
+  updateSyncBtn();
+  showToast("✅ Passage " + currentPiece.compteur_passages + "/" + currentPiece.passages + " enregistré");
+}
+
+function annulerDernierPassage() {
+  if (!currentPiece) return;
+  var compteur = currentPiece.compteur_passages || 0;
+  if (compteur <= 0) return;
+  currentPiece.compteur_passages = compteur - 1;
+  
+  var currentKpi = getDailyKPI();
+  if (currentKpi > 0) {
+    var todayStr = new Date().toISOString().split('T')[0];
+    safeSetStorage("bim_kpi_jour", { date: todayStr, count: currentKpi - 1 });
+  }
+  
+  updatePieceInStorage(currentPiece);
+  addScanToQueue(currentPiece);
+  renderDetail(currentPiece);
+  updateSyncBtn();
+  showToast("↩️ Passage annulé (" + currentPiece.compteur_passages + "/" + currentPiece.passages + ")");
+}
+
+function addScanToQueue(piece) {
+  queue = queue.filter(function(q) { return !(q.rowIndex === piece.rowIndex && q.type !== "date"); });
+  queue.push({ type: "scan", rowIndex: piece.rowIndex, newCompteur: piece.compteur_passages, id_local: piece.id_local, timestamp: new Date().toISOString() });
+  safeSetStorage(KEY_QUEUE, queue);
+}
+
+function addDateToQueue(piece, field, newDate) {
+  queue = queue.filter(function(q) { return !(q.type === "date" && q.rowIndex === piece.rowIndex && q.field === field); });
+  queue.push({ type: "date", rowIndex: piece.rowIndex, field: field, newDate: newDate, id_local: piece.id_local, timestamp: new Date().toISOString() });
+  safeSetStorage(KEY_QUEUE, queue);
+}
+
+function updatePieceInStorage(updated) {
+  allPieces = allPieces.map(function(p) { return p.id_local === updated.id_local ? updated : p; });
+  safeSetStorage(KEY_PIECES, allPieces);
+}
+
+function updateSyncBtn() {
+  var btns = document.querySelectorAll(".btn-sync");
+  var lbls = document.querySelectorAll(".sync-count-label");
+  btns.forEach(function(btn) {
+    if (queue.length > 0) btn.classList.add("has-queue");
+    else btn.classList.remove("has-queue");
+  });
+  lbls.forEach(function(lbl) {
+    lbl.textContent = queue.length > 0 ? queue.length + " en attente" : "Synchro";
+  });
+}
+
+function handleSync() {
+  if (queue.length === 0) { showToast("✓ Tout est synchronisé"); return; }
+  
+  var btns = document.querySelectorAll(".btn-sync");
+  btns.forEach(function(b) { b.style.opacity = "0.5"; b.style.pointerEvents = "none"; });
+  var snap = queue.slice();
+
+  fetch(WEBHOOK_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'sync', data: snap })
+  })
+  .then(response => response.json())
+  .then(function(r) {
+    btns.forEach(function(b) { b.style.opacity = ""; b.style.pointerEvents = ""; });
+    if (r && r.success) {
+      queue = []; safeSetStorage(KEY_QUEUE, queue);
+      updateSyncBtn();
+      showToast("☁️ " + r.updated + " mise(s) à jour synchronisée(s)");
+      refreshFromServer(true);
+    } else { showToast("⚠️ Synchronisation partielle"); }
+  })
+  .catch(function(err) {
+    btns.forEach(function(b) { b.style.opacity = ""; b.style.pointerEvents = ""; });
+    showToast("❌ Vérifiez le réseau");
+  });
+}
+
+function isComplete(p) { return p.passages > 0 && (p.compteur_passages || 0) >= p.passages; }
+
+function findPiece(idLocal) {
+  for (var i = 0; i < allPieces.length; i++) {
+    if (allPieces[i].id_local === String(idLocal)) return allPieces[i];
+  }
+  return null;
+}
+
+function parseIsoDate(iso) {
+  if (!iso) return null;
+  var p = String(iso).split("-");
+  if (p.length !== 3) return null;
+  return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+}
+
+function fmtDisplayDate(iso) {
+  if (!iso || iso === "—") return "";
+  var d = parseIsoDate(iso);
+  if (!d || isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("fr-FR");
+}
+
+function setVisible(id, visible) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  visible ? el.classList.remove("hidden") : el.classList.add("hidden");
+}
+
+function setRowVisible(rowId, visible) {
+  var el = document.getElementById(rowId);
+  if (!el) return;
+  visible ? el.classList.remove("hidden") : el.classList.add("hidden");
+}
+
+function getIcon(n) {
+  if (!n) return "🏢";
+  n = n.toLowerCase();
+  if (n.includes("sanitaire") || n.includes("wc") || n.includes("toilette")) return "🚿";
+  if (n.includes("douche")) return "🚿";
+  if (n.includes("circulation")) return "🚶";
+  if (n.includes("préparation") || n.includes("preparation")) return "🔬";
+  if (n.includes("bureau")) return "💼";
+  if (n.includes("salle")) return "🏥";
+  if (n.includes("couloir")) return "🚪";
+  if (n.includes("escalier")) return "🪜";
+  if (n.includes("parking")) return "🅿️";
+  if (n.includes("technique")) return "⚙️";
+  if (n.includes("accueil")) return "🛎️";
+  if (n.includes("vestiaire")) return "👕";
+  if (n.includes("stockage") || n.includes("stock")) return "📦";
+  return "🏢";
+}
+
+/* =====================================================
+   ASSIGN DATES SHEET
+===================================================== */
+function getCurrentFloorPieces() {
+  if (!currentPiece) return [];
+  return allPieces.filter(function(p) {
+    return p.nom_projet === currentPiece.nom_projet &&
+           p.niveau === currentPiece.niveau &&
+           p.id_local !== currentPiece.id_local;
+  });
+}
+
+function resetAssignSelection() {
+  assignState = {
+    mode: "floor",
+    criticites: [],
+    manualIds: []
+  };
+}
+
+function openAssignSheet() {
+  if (!currentPiece) return;
+  resetAssignSelection();
+  setAssignMode("floor");
+  renderAssignPreviews();
+  renderAssignManualList();
+  document.getElementById("assign-overlay").classList.add("open");
+  document.getElementById("assign-sheet").classList.add("open");
+}
+
+function closeAssignSheet() {
+  document.getElementById("assign-overlay").classList.remove("open");
+  document.getElementById("assign-sheet").classList.remove("open");
+}
+
+function setAssignMode(mode) {
+  assignState.mode = mode;
+  ["floor", "criticite", "manual"].forEach(function(m) {
+    var tab = document.getElementById("tab-assign-" + m);
+    var panel = document.getElementById("assign-panel-" + m);
+    if (tab) tab.classList.toggle("active", m === mode);
+    if (panel) {
+      if (m === mode) panel.classList.remove("hidden");
+      else panel.classList.add("hidden");
+    }
+  });
+  if (mode === "manual") renderAssignManualList();
+  renderAssignPreviews();
+}
+
+function toggleAssignCriticite(val) {
+  var idx = assignState.criticites.indexOf(val);
+  if (idx >= 0) assignState.criticites.splice(idx, 1);
+  else assignState.criticites.push(val);
+
+  var el = document.getElementById("assign-crit-" + escId(val));
+  if (el) el.classList.toggle("checked", assignState.criticites.indexOf(val) >= 0);
+  renderAssignPreviews();
+}
+
+function getAssignTargetsByMode(mode) {
+  var floorPieces = getCurrentFloorPieces();
+  if (mode === "floor") return floorPieces;
+  if (mode === "criticite") {
+    return floorPieces.filter(function(p) {
+      return assignState.criticites.indexOf(p.criticite) >= 0;
+    });
+  }
+  if (mode === "manual") {
+    return floorPieces.filter(function(p) {
+      return assignState.manualIds.indexOf(String(p.id_local)) >= 0;
+    });
+  }
+  return [];
+}
+
+function getAssignTargets() {
+  return getAssignTargetsByMode(assignState.mode);
+}
+
+function renderAssignPreviews() {
+  var floorCount = getAssignTargetsByMode("floor").length;
+  var floorPreview = document.getElementById("assign-floor-preview");
+  if (floorPreview) floorPreview.textContent = floorCount + " local" + (floorCount > 1 ? "ux ciblés" : " ciblé");
+
+  var critCount = getAssignTargetsByMode("criticite").length;
+  var critPreview = document.getElementById("assign-criticite-preview");
+  if (critPreview) critPreview.textContent = critCount + " local" + (critCount > 1 ? "ux ciblés" : " ciblé");
+
+  var manualCount = assignState.manualIds.length;
+  var manualPreview = document.getElementById("assign-manual-preview");
+  if (manualPreview) manualPreview.textContent = manualCount + " local" + (manualCount > 1 ? "ux sélectionnés" : " sélectionné");
+}
+
+function renderAssignManualList() {
+  var container = document.getElementById("assign-manual-list");
+  if (!container) return;
+
+  var floorPieces = getCurrentFloorPieces();
+  var search = (document.getElementById("assign-manual-search").value || "").toLowerCase().trim();
+  toggleClearBtn("assign-manual-search", "assign-manual-clear");
+
+  var filtered = floorPieces.filter(function(p) {
+    if (!search) return true;
+    return (p.local && p.local.toLowerCase().includes(search)) ||
+           (p.id_local && String(p.id_local).toLowerCase().includes(search)) ||
+           (p.criticite && p.criticite.toLowerCase().includes(search));
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:28px 16px;"><div class="empty-state-icon">🔍</div><div class="empty-state-text">Aucun local trouvé</div></div>';
+    renderAssignPreviews();
+    return;
+  }
+
+  container.innerHTML = filtered.map(function(p) {
+    var checked = assignState.manualIds.indexOf(String(p.id_local)) >= 0;
+    return `
+      <div class="assign-manual-row" onclick="toggleAssignManual('${escHtml(String(p.id_local))}')">
+        <div class="assign-manual-info">
+          <div class="assign-manual-name">${escHtml(p.local || "Local")}</div>
+          <div class="assign-manual-meta">ID ${escHtml(p.id_local)} · ${escHtml(p.criticite || "—")}</div>
+        </div>
+        <div class="custom-cb ${checked ? 'checked' : ''}" id="assign-manual-${escId(String(p.id_local))}"></div>
+      </div>
+    `;
+  }).join("");
+
+  renderAssignPreviews();
+}
+
+function toggleAssignManual(idLocal) {
+  idLocal = String(idLocal);
+  var idx = assignState.manualIds.indexOf(idLocal);
+  if (idx >= 0) assignState.manualIds.splice(idx, 1);
+  else assignState.manualIds.push(idLocal);
+
+  var el = document.getElementById("assign-manual-" + escId(idLocal));
+  if (el) el.classList.toggle("checked", assignState.manualIds.indexOf(idLocal) >= 0);
+  renderAssignPreviews();
+}
+
+function assignSelectAllManual() {
+  var floorPieces = getCurrentFloorPieces();
+  var search = (document.getElementById("assign-manual-search").value || "").toLowerCase().trim();
+
+  var filtered = floorPieces.filter(function(p) {
+    if (!search) return true;
+    return (p.local && p.local.toLowerCase().includes(search)) ||
+           (p.id_local && String(p.id_local).toLowerCase().includes(search)) ||
+           (p.criticite && p.criticite.toLowerCase().includes(search));
+  });
+
+  filtered.forEach(function(p) {
+    var id = String(p.id_local);
+    if (assignState.manualIds.indexOf(id) < 0) assignState.manualIds.push(id);
+  });
+
+  renderAssignManualList();
+}
+
+function assignClearManual() {
+  assignState.manualIds = [];
+  renderAssignManualList();
+}
+
+function confirmAssignDates(isClearMode) {
+  if (!currentPiece) return;
+
+  var dateDebut = document.getElementById("admin-input-debut").value;
+  var dateFerm = document.getElementById("admin-input-fermeture").value;
+
+  if (!isClearMode && !dateDebut && !dateFerm) {
+    showToast("⚠️ Saisissez au moins une date (ou utilisez Effacer)");
+    return;
+  }
+
+  var targets = getAssignTargets();
+  if (!targets || targets.length === 0) {
+    showToast("⚠️ Aucun local ciblé");
+    return;
+  }
+
+  if (isClearMode) {
+    if (!confirm("⚠️ Voulez-vous vraiment EFFACER les dates des " + targets.length + " locaux ciblés ?")) {
+      return;
+    }
+  }
+
+  var count = 0;
+  targets.forEach(function(p) {
+    var updated = false;
+
+    if (isClearMode) {
+      if (p.debut_scan && p.debut_scan !== "") {
+        p.debut_scan = "";
+        addDateToQueue(p, "debut_scan", "");
+        updated = true;
+      }
+      if (p.date_fermeture && p.date_fermeture !== "") {
+        p.date_fermeture = "";
+        addDateToQueue(p, "date_fermeture", "");
+        updated = true;
+      }
+    } else {
+      if (dateDebut !== "" && p.debut_scan !== dateDebut) {
+        p.debut_scan = dateDebut;
+        addDateToQueue(p, "debut_scan", dateDebut);
+        updated = true;
+      }
+      if (dateFerm !== "" && p.date_fermeture !== dateFerm) {
+        p.date_fermeture = dateFerm;
+        addDateToQueue(p, "date_fermeture", dateFerm);
+        updated = true;
+      }
+    }
+
+    if (updated) count++;
+  });
+
+  if (count > 0) {
+    safeSetStorage(KEY_PIECES, allPieces);
+    updateSyncBtn();
+    closeAssignSheet();
+    if (isClearMode) {
+      showToast("🗑️ Dates effacées pour " + count + " local(aux)");
+    } else {
+      showToast("📅 Dates appliquées à " + count + " local(aux)");
+    }
+  } else {
+    showToast("ℹ️ Aucune modification nécessaire");
+  }
+}
+/* =====================================================
+   RAPPORT TERRAIN (COMMENTAIRE & PHOTO HORS-LIGNE)
+===================================================== */
+function onCommentaireChange(val) {
+  if (!currentPiece) return;
+  currentPiece.commentaire = val;
+  updatePieceInStorage(currentPiece);
+  
+  // Ajouter à la file d'attente
+  queue = queue.filter(function(q) { return !(q.type === "commentaire" && q.rowIndex === currentPiece.rowIndex); });
+  queue.push({ type: "commentaire", rowIndex: currentPiece.rowIndex, text: val });
+  safeSetStorage(KEY_QUEUE, queue);
+  updateSyncBtn();
+}
+
+function handlePhotoSelection(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+
+  // Afficher un mini-loader ou toast si ça prend 1 seconde
+  showToast("⏳ Compression de l'image...");
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      // MAGIE : Compression via un Canvas HTML5
+      var canvas = document.createElement("canvas");
+      var MAX_WIDTH = 1000; // Taille max pour rester léger
+      var MAX_HEIGHT = 1000;
+      var width = img.width;
+      var height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+      } else {
+        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Qualité JPEG 0.6 = excellent compromis Poids/Qualité (souvent < 150ko)
+      var compressedBase64 = canvas.toDataURL("image/jpeg", 0.6); 
+
+      // 1. Affichage à l'écran
+      document.getElementById("photo-preview-container").classList.add("has-photo");
+
+      // 2. Sauvegarde dans l'objet et le stockage local
+      if (currentPiece) {
+        currentPiece.photo_anomalie_base64 = compressedBase64; // On stocke le Base64
+        updatePieceInStorage(currentPiece);
+        
+        // 3. Ajout à la file d'attente pour le serveur
+        queue = queue.filter(function(q) { return !(q.type === "photo" && q.rowIndex === currentPiece.rowIndex); });
+        queue.push({ type: "photo", rowIndex: currentPiece.rowIndex, base64: compressedBase64, idLocal: currentPiece.id_local });
+        safeSetStorage(KEY_QUEUE, queue);
+        updateSyncBtn();
+        
+        showToast("📸 Photo enregistrée (Hors-ligne)");
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePhoto() {
+  if (!currentPiece) return;
+  document.getElementById("photo-preview-container").classList.remove("has-photo");
+  document.getElementById("detail-photo-input").value = ""; // Réinitialise le bouton
+  
+  currentPiece.photo_anomalie_base64 = "";
+  updatePieceInStorage(currentPiece);
+  
+  // On envoie un ordre de suppression (base64 vide) au serveur
+  queue = queue.filter(function(q) { return !(q.type === "photo" && q.rowIndex === currentPiece.rowIndex); });
+  queue.push({ type: "photo", rowIndex: currentPiece.rowIndex, base64: "", idLocal: currentPiece.id_local });
+  safeSetStorage(KEY_QUEUE, queue);
+  updateSyncBtn();
+  
+  showToast("🗑️ Photo supprimée");
+}
+function escHtml(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
+}
+function escId(s) { return String(s).replace(/[^a-zA-Z0-9]/g, "_"); }
+
+var _toastTimer = null;
+function showToast(msg) {
+  var el = document.getElementById("toast");
+  el.textContent = msg; el.classList.add("show");
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function() { el.classList.remove("show"); }, 2800);
+}
+
+function showLoader(v) { 
+  var loader = document.getElementById("loader-screen");
+  if (v) {
+    loader.classList.remove("hidden");
+    // On remet toujours le texte par défaut quand on affiche le chargeur
+    document.querySelector(".loader-sub").textContent = "Connexion au serveur BIM…"; 
+  } else {
+    loader.classList.add("hidden");
+  }
+}
+function showError(msg) { document.getElementById("error-msg-text").textContent = msg || "Erreur."; document.getElementById("error-screen").classList.remove("hidden"); showLoader(false); }
+function hideError() { document.getElementById("error-screen").classList.add("hidden"); }
+
+function safeGetStorage(k) { try { var r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch(e){ return null; } }
+function safeSetStorage(k,v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+function safeRemoveStorage(k) { try { localStorage.removeItem(k); } catch(e){} }
+
+function toggleClearBtn(inputId, btnId) {
+  var btn = document.getElementById(btnId);
+  var inputVal = document.getElementById(inputId).value;
+  if (inputVal.length > 0) btn.classList.add("show");
+  else btn.classList.remove("show");
+}
+
+function clearSearch(inputId, btnId) {
+  var input = document.getElementById(inputId);
+  input.value = "";
+  document.getElementById(btnId).classList.remove("show");
+  input.focus();
+}
+
+/* =====================================================
+   MOTEUR DE TOURNÉE — VUE TÂCHES
+===================================================== */
+
+/* --- Calcul de l'urgence d'un local --- */
+function getUrgencyLevel(piece) {
+  if (!piece.date_fermeture) return "en-cours";
+  var today = new Date(); today.setHours(0,0,0,0);
+  var fermeture = parseIsoDate(piece.date_fermeture);
+  if (!fermeture) return "en-cours";
+  var diffMs = fermeture.getTime() - today.getTime();
+  var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "retard";
+  if (diffDays <= 2) return "urgent";
+  return "en-cours";
+}
+
+/* --- Scores pour le tri --- */
+function criticiteScore(c) {
+  if (c === "NIV 1") return 1;
+  if (c === "NIV 2") return 2;
+  if (c === "NIV 3") return 3;
+  return 99;
+}
+
+function urgenceScore(u) {
+  if (u === "retard") return 1;
+  if (u === "urgent") return 2;
+  return 3;
+}
+
+/* --- Moteur principal : filtre + tri + groupement --- */
+function getTaskList() {
+  var today = new Date(); today.setHours(0,0,0,0);
+
+  // 1. Filtre d'éligibilité
+  var eligible = allPieces.filter(function(p) {
+    if (isComplete(p)) return false;
+    if (!p.debut_scan) return false;
+    var debutDate = parseIsoDate(p.debut_scan);
+    if (!debutDate) return false;
+    return debutDate <= today;
+  });
+
+  // 2. Tri spatial (Projet+Niveau) puis urgence puis criticité
+  eligible.sort(function(a, b) {
+    var grpA = (a.nom_projet || "") + "|||" + (a.niveau || "");
+    var grpB = (b.nom_projet || "") + "|||" + (b.niveau || "");
+    if (grpA < grpB) return -1;
+    if (grpA > grpB) return 1;
+    var uA = urgenceScore(getUrgencyLevel(a));
+    var uB = urgenceScore(getUrgencyLevel(b));
+    if (uA !== uB) return uA - uB;
+    return criticiteScore(a.criticite) - criticiteScore(b.criticite);
+  });
+
+  // 3. Regroupement par "Projet — Niveau"
+  var groups = {};
+  var groupOrder = [];
+  eligible.forEach(function(p) {
+    var key = (p.nom_projet || "Projet inconnu") + " — " + (p.niveau || "Sans niveau");
+    if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
+    groups[key].push(p);
+  });
+
+  // 4. Liste globale triée par urgence absolue (pour "prochain local")
+  var globalSorted = eligible.slice().sort(function(a, b) {
+    var uA = urgenceScore(getUrgencyLevel(a));
+    var uB = urgenceScore(getUrgencyLevel(b));
+    if (uA !== uB) return uA - uB;
+    return criticiteScore(a.criticite) - criticiteScore(b.criticite);
+  });
+
+  return { groups: groups, groupOrder: groupOrder, all: globalSorted };
+}
+
+/* --- Afficher la vue Tâches --- */
+function showTasksView() {
+  activateView("view-tasks");
+  updateRoleBadge();
+  updateSyncBtn();
+  renderTasksView();
+}
+
+/* --- Render complet de la vue Tâches --- */
+function renderTasksView() {
+document.getElementById("kpi-passages-jour").textContent = getDailyKPI();
+  var container = document.getElementById("tasks-list-container");
+  container.innerHTML = "";
+
+  var result = getTaskList();
+
+  if (result.all.length === 0) {
+    container.innerHTML =
+      '<div class="tasks-empty">' +
+        '<div class="tasks-empty-icon">🏆</div>' +
+        '<div class="tasks-empty-text">Aucune tâche active pour aujourd\'hui.<br>Tout est à jour ou aucune date de début n\'est encore dépassée.</div>' +
+      '</div>';
+    return;
+  }
+
+  result.groupOrder.forEach(function(groupKey) {
+    var pieces = result.groups[groupKey];
+
+    var header = document.createElement("div");
+    header.className = "task-section-header";
+    header.textContent = groupKey;
+    container.appendChild(header);
+
+    pieces.forEach(function(p) {
+      container.appendChild(buildTaskCard(p));
+    });
+  });
+}
+
+/* --- Construction d'une carte de tâche --- */
+function buildTaskCard(piece) {
+  var urgency = getUrgencyLevel(piece);
+  var done = isComplete(piece);
+  var c = piece.compteur_passages || 0;
+  var p = piece.passages || 0;
+  var critRaw = (piece.criticite || "").trim();
+  var critCls = critRaw === "NIV 1" ? "niv1" : critRaw === "NIV 2" ? "niv2" : critRaw === "NIV 3" ? "niv3" : "";
+
+  var card = document.createElement("div");
+  card.className = "task-card urgency-" + (done ? "done" : urgency);
+  card.id = "task-card-" + escId(piece.id_local);
+  card.onclick = function(e) {
+    if (e.target.closest && e.target.closest(".btn-quick-scan")) return;
+    openDetail(piece.id_local, 'tasks');
+  };
+
+  var urgencyTag = "";
+  if (!done && urgency === "retard") {
+    urgencyTag = '<span class="task-card-urgency-tag retard">EN RETARD</span>';
+  } else if (!done && urgency === "urgent") {
+    urgencyTag = '<span class="task-card-urgency-tag urgent">URGENT</span>';
+  }
+
+  var btnHtml = done
+    ? '<button class="btn-quick-scan done-btn" disabled>✓ Terminé</button>'
+    : '<button class="btn-quick-scan" onclick="quickValidateScan(\'' + escHtml(String(piece.id_local)) + '\')">+1 Scan</button>';
+
+  card.innerHTML =
+    '<div class="task-card-body">' +
+      '<div class="task-card-id">ID ' + escHtml(piece.id_local) + '</div>' +
+      '<div class="task-card-name">' + escHtml(piece.local || "Local") + '</div>' +
+      '<div class="task-card-meta">' +
+        (critCls ? '<span class="task-card-crit ' + critCls + '">' + escHtml(critRaw) + '</span>' : '') +
+        urgencyTag +
+      '</div>' +
+    '</div>' +
+    '<div class="task-card-right">' +
+      '<div class="task-card-progress">' + c + '/' + p + '</div>' +
+      btnHtml +
+    '</div>';
+
+  return card;
+}
+
+/* --- +1 Scan rapide depuis la carte (sans ouvrir le détail) --- */
+function quickValidateScan(idLocal) {
+  var piece = findPiece(String(idLocal));
+  if (!piece || isComplete(piece)) return;
+
+  piece.compteur_passages = (piece.compteur_passages || 0) + 1;
+
+  updatePieceInStorage(piece);
+  addScanToQueue(piece);
+  updateSyncBtn();
+
+  // Mise à jour du KPI avec la nouvelle fonction persistante
+  var newCount = incrementDailyKPI();
+  var kpiEl = document.getElementById("kpi-passages-jour");
+  if (kpiEl) kpiEl.textContent = newCount;
+
+  // Remplacement inline de la carte
+  var cardEl = document.getElementById("task-card-" + escId(idLocal));
+  if (cardEl) {
+    var newCard = buildTaskCard(piece);
+    newCard.id = "task-card-" + escId(idLocal);
+    cardEl.parentNode.replaceChild(newCard, cardEl);
+
+    // Si le local est maintenant terminé : fondu puis re-render
+    if (isComplete(piece)) {
+      var el2 = document.getElementById("task-card-" + escId(idLocal));
+      if (el2) { el2.style.opacity = "0.25"; el2.style.transition = "opacity 0.5s"; }
+      setTimeout(function() { renderTasksView(); }, 950);
+    }
+  }
+
+  showToast("✅ " + (piece.local || idLocal) + " : " + piece.compteur_passages + "/" + piece.passages + " passages");
+}
+
+/* --- Ouvre directement le local le plus urgent --- */
+function goToNextTask() {
+  var result = getTaskList();
+  if (!result.all || result.all.length === 0) {
+    showToast("🏆 Aucune tâche active !");
+    return;
+  }
+  openDetail(result.all[0].id_local, 'tasks');
+}
+</script>
+</body>
+</html>
