@@ -824,7 +824,24 @@
   <div class="error-msg" id="error-msg-text">Vérifiez votre connexion. Les données ne sont pas encore disponibles hors-ligne.</div>
   <button class="btn-retry" onclick="initApp()">🔄 Réessayer</button>
 </div>
-
+/* --- NOUVEAU : Forcer les passages selon la règle Python Dynamo --- */
+function enforceCriticiteRules(pieces) {
+  if (!Array.isArray(pieces)) return [];
+  return pieces.map(function(p) {
+    if (!p) return p;
+    var crit = (p.criticite || "").trim().toUpperCase();
+    
+    // Application stricte des seuils d'imposition
+    if (crit === "NIV 1") {
+      p.passages = 1;
+    } else if (crit === "NIV 2") {
+      p.passages = 2;
+    } else if (crit === "NIV 3") {
+      p.passages = 3;
+    }
+    return p;
+  });
+}
 <div id="view-login" class="view hidden">
   <div class="login-logo">🏗️</div>
   <div class="login-app-name">Scan-to-BIM</div>
@@ -1377,7 +1394,8 @@ function initApp() {
   showLoader(true); hideError();
   var cached = safeGetStorage(KEY_PIECES);
   if (cached && cached.length > 0) {
-    allPieces = cached;
+    // 1. APPLICATION SUR LE CACHE LOCAL (Hors-ligne)
+    allPieces = enforceCriticiteRules(cached);
     queue = safeGetStorage(KEY_QUEUE) || [];
     showProjectsView();
     showLoader(false);
@@ -1398,7 +1416,9 @@ function refreshFromServer(silent) {
         return;
       }
       if (queue.length > 0) pieces = mergeQueueIntoFreshData(pieces);
-      allPieces = pieces;
+      
+      // 2. APPLICATION SUR LES DONNÉES FRAÎCHES DU SERVEUR
+      allPieces = enforceCriticiteRules(pieces);
       safeSetStorage(KEY_PIECES, allPieces);
       
       if (!silent) { showProjectsView(); showLoader(false); }
