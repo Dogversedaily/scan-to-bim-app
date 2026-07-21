@@ -277,7 +277,7 @@
     }
     .btn-sheet-done:active { opacity: 0.85; transform: scale(0.97); }
     .fantome-drag { opacity: 0.4; background: #e2e8f0; border: 2px dashed var(--blue-acc) !important; }
-    .summary-card { cursor: grab; touch-action: pan-y; }
+    ..summary-card { cursor: grab; touch-action: pan-y !important; }
     .summary-card:active { cursor: grabbing; }
     /* =====================================================
        NOUVEAU DESIGN : CARTES PROJETS (DASHBOARD)
@@ -1316,21 +1316,23 @@ window.addEventListener("DOMContentLoaded", function() {
   // --- NOUVEAU : ACTIVATION DU DRAG & DROP ---
   var container = document.getElementById("projects-list-container");
   if (typeof Sortable !== 'undefined' && container) {
+   var container = document.getElementById("projects-list-container");
+  if (typeof Sortable !== 'undefined' && container) {
     new Sortable(container, {
       animation: 150,
-      delay: 200, // On demande de rester appuyé 200ms sur téléphone avant de déplacer
+      delay: 200, 
       delayOnTouchOnly: true,
+      touchStartThreshold: 5, // <--- LE PARAMÈTRE CLÉ QUI AUTORISE LE SCROLL MOBILE
       ghostClass: 'fantome-drag',
       onEnd: function (evt) {
-        // Cette fonction se déclenche quand tu relâches la carte
         var newOrder = [];
         var cards = container.querySelectorAll('.summary-card');
         cards.forEach(function(card) {
           var projName = card.getAttribute('data-id');
           if(projName) newOrder.push(projName);
         });
-        savedProjectOrder = newOrder; // Met à jour la variable
-        safeSetStorage("bim_project_order", savedProjectOrder); // Sauvegarde dans le téléphone
+        savedProjectOrder = newOrder;
+        safeSetStorage("bim_project_order", savedProjectOrder);
         showToast("✅ Nouvel ordre enregistré");
       }
     });
