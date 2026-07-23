@@ -1294,7 +1294,7 @@ var USERS = {
   "tech":  { password: "bim", role: "utilisateur" },
   "admin": { password: "bim", role: "planificateur" }
 };
-var WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz88jxuNeHChLJwRWTzIfagnAGa22oJD6u4V0KjMU_qrvvXLOKYvQuYI9NPZu_zNqeN/exec";
+var WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwZv6QR463yg2PEyvglgqwPVl2k16EQwO6ufBKMUUItXjFt7LmCZgVKPp-PqVsdUJFM/exec";
 
 
 var allPieces = [];
@@ -1313,31 +1313,33 @@ var detailNavigationSource = 'list'; // NOUVEAU : mémorise la page précédente
 window.addEventListener("DOMContentLoaded", function() {
   session = safeGetStorage(KEY_SESSION);
   
-  // --- NOUVEAU : ACTIVATION DU DRAG & DROP ---
-  var container = document.getElementById("projects-list-container");
-  if (typeof Sortable !== 'undefined' && container) {
-   var container = document.getElementById("projects-list-container");
-  if (typeof Sortable !== 'undefined' && container) {
-    new Sortable(container, {
-      animation: 150,
-      delay: 200, 
-      delayOnTouchOnly: true,
-      touchStartThreshold: 5, // <--- LE PARAMÈTRE CLÉ QUI AUTORISE LE SCROLL MOBILE
-      ghostClass: 'fantome-drag',
-      onEnd: function (evt) {
-        var newOrder = [];
-        var cards = container.querySelectorAll('.summary-card');
-        cards.forEach(function(card) {
-          var projName = card.getAttribute('data-id');
-          if(projName) newOrder.push(projName);
-        });
-        savedProjectOrder = newOrder;
-        safeSetStorage("bim_project_order", savedProjectOrder);
-        showToast("✅ Nouvel ordre enregistré");
-      }
-    });
+  // --- INITIALISATION SÉCURISÉE DU DRAG & DROP POUR MOBILE ---
+  try {
+    var container = document.getElementById("projects-list-container");
+    if (typeof Sortable !== 'undefined' && container) {
+      new Sortable(container, {
+        animation: 150,
+        delay: 250,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 5, // <--- LE PARAMÈTRE CLÉ QUI AUTORISE LE SCROLL MOBILE
+        ghostClass: 'fantome-drag',
+        onEnd: function (evt) {
+          var newOrder = [];
+          var cards = container.querySelectorAll('.summary-card');
+          cards.forEach(function(card) {
+            var projName = card.getAttribute('data-id');
+            if(projName) newOrder.push(projName);
+          });
+          savedProjectOrder = newOrder;
+          safeSetStorage("bim_project_order", savedProjectOrder);
+          showToast("✅ Nouvel ordre enregistré");
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("Erreur tactile ignorée :", err);
   }
-  // -------------------------------------------
+  // -------------------------------------------------------------
 
   if (session && session.role) { initApp(); }
   else { showLoginView(); }
